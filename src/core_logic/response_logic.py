@@ -151,6 +151,11 @@ Provide the single most important fact or data point as a raw, unformatted sente
     print(f"-----fact:raw grok data-----: {raw_grok_data}")
     print(f"-----fact:humanized reply-----: {final_reply}")
 
+    # Check for errors in final reply before sending to Telegram
+    if "Error:" in final_reply or "error" in final_reply.lower() or not final_reply.strip():
+        print(f"[BRAIN] Error in final reply, not sending to Telegram: {final_reply}")
+        return
+
     # Add query and response to memory
     add_to_memory(message.text, "user")
     add_to_memory(final_reply, "assistant")
@@ -299,8 +304,9 @@ YOUR REPLY (RAW TEXT ONLY):
     reply = await humanize_grok_response(reply, text, persona_manager, db)
     print(f"-----Reaction:persona-based-reply-after-humanization-----: {reply}")
 
-    if "Error:" in reply:
-        print(f"Error getting LLM response: {reply}")
+    # Check for various error patterns before sending to Telegram
+    if "Error:" in reply or "error" in reply.lower() or not reply.strip():
+        print(f"Error in LLM response, not sending to Telegram: {reply}")
         return
     
     # Add message and response to memory
