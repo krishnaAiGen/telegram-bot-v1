@@ -41,50 +41,46 @@ async def main():
     ingestor_client.add_event_handler(lambda e: listener_handler(e, brain_queue), events.NewMessage(chats=[APP_CONFIG['telegram_group_id']]))
     
     print("[MAIN] Connecting clients...")
-    async with asyncio.TaskGroup() as tg:
-        # Start the background workers
-        print("[MAIN] Launching background workers...")
-        tg.create_task(brain_worker(brain_queue, sender_queue, persona_manager, state_manager, db))
-        tg.create_task(sender_worker(sender_queue, sender_clients))
-        tg.create_task(scheduler_worker(sender_queue, persona_manager, state_manager, db))
+    
+    # Start and connect all telegram clients first
+    print("[MAIN] Starting all Telegram clients...")
+    for client in all_clients:
+        await client.connect()    
+        if not await client.is_user_authorized():
+            if client.session and hasattr(client.session, "filename"):
+                session_name = os.path.basename(str(client.session.filename))
+            else:
+                session_name = "unknown"
+            raise Exception(f"Client for session '{session_name}' is not authorized.")
 
-        # Start and run all telegram clients
-        print("[MAIN] Starting all Telegram clients...")
-        for client in all_clients:
-            await client.connect()    
-            if not await client.is_user_authorized():
-                if client.session and hasattr(client.session, "filename"):
-                    session_name = os.path.basename(str(client.session.filename))
-                else:
-                    session_name = "unknown"
-                raise Exception(f"Client for session '{session_name}' is not authorized.")
-
-            # The 'start()' method is called implicitly by 'run_until_disconnected'
-            # but we can connect first to ensure they are ready.
-            await client.connect()
-            if not await client.is_user_authorized():
-                if client.session and hasattr(client.session, "filename"):
-                    session_name = os.path.basename(str(client.session.filename))
-                else:
-                    session_name = "unknown"
-                raise Exception(f"Client for session '{session_name}' is not authorized.")
-        
-        print("--- Bot is fully operational. Press Ctrl+C to stop. ---")
-        valid_clients = [
-    c for c in all_clients
-    if c is not None and hasattr(c, "run_until_disconnected") and callable(c.run_until_disconnected)
-]
-        # Only pass non-None, awaitable coroutines to asyncio.gather
-        
-        coros = []
-        for c in valid_clients:
-            coro = c.run_until_disconnected()
-            if coro is not None and hasattr(coro, "__await__"):
-                coros.append(coro)
-        
-        await asyncio.gather(*coros)
-        
-        # This will run all clients until they are disconnected
+    # Start the background workers
+    print("[MAIN] Launching background workers...")
+    tasks = []
+    tasks.append(asyncio.create_task(brain_worker(brain_queue, sender_queue, persona_manager, state_manager, db)))
+    tasks.append(asyncio.create_task(sender_worker(sender_queue, sender_clients)))
+    tasks.append(asyncio.create_task(scheduler_worker(sender_queue, persona_manager, state_manager, db)))
+    
+    # Add client tasks
+    valid_clients = [
+        c for c in all_clients
+        if c is not None and hasattr(c, "run_until_disconnected") and callable(c.run_until_disconnected)
+    ]
+    
+    for client in valid_clients:
+        tasks.append(asyncio.create_task(client.run_until_disconnected()))
+    
+    print("--- Bot is fully operational. Press Ctrl+C to stop. ---")
+    
+    # Run all tasks concurrently
+    try:
+        await asyncio.gather(*tasks)
+    except Exception as e:
+        print(f"[MAIN] Error in main tasks: {e}")
+        # Cancel all remaining tasks
+        for task in tasks:
+            if not task.done():
+                task.cancel()
+        raise
 
 if __name__ == "__main__":
     try:
