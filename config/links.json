@@ -1,38 +1,30 @@
 [
   {
     "link": "https://cointelegraph.com",
-    "description": "Latest cryptocurrency news and market analysis",
-    "time_interval": 60,
-    "type": "#crypto-news"
-  },
-  {
-    "link": "https://tradingview.com/markets/cryptocurrencies",
-    "description": "Real-time crypto trading charts and signals", 
-    "time_interval": 30,
-    "type": "#trading-signals"
-  },
-  {
-    "link": "https://defipulse.com",
-    "description": "DeFi protocols and yield farming opportunities",
+    "description": "Latest cryptocurrency news and market analysis.",
     "time_interval": 120,
-    "type": "#defi"
+    "posting_strategy": "recurrent",
+    "type": "Crypto News"
   },
   {
-    "link": "https://opensea.io/rankings",
-    "description": "Top NFT collections and marketplace trends",
+    "link": "https://a16zcrypto.com/posts/",
+    "description": "In-depth research and thought leadership on the future of web3.",
+    "time_interval": 240,
+    "posting_strategy": "recurrent",
+    "type": "Web3 Research"
+  },
+  {
+    "link": "https://event-announcement.com/special-webinar",
+    "description": "Announcing our special one-time webinar next week! Don't miss out.",
+    "time_interval": 60,
+    "posting_strategy": "once",
+    "type": "Announcement"
+  },
+  {
+    "link": "https://our-new-feature.com/promo",
+    "description": "Check out our new feature! This promotion is for a limited time.",
     "time_interval": 180,
-    "type": "#nft-talk"
-  },
-  {
-    "link": "https://coinmarketcap.com",
-    "description": "Cryptocurrency market cap and price data",
-    "time_interval": 45,
-    "type": "#market-data"
-  },
-  {
-    "link": "https://www.binance.com/en/support/announcement",
-    "description": "Binance exchange announcements and new listings",
-    "time_interval": 90,
-    "type": "#exchange-news"
+    "posting_strategy": 3,
+    "type": "Promotion"
   }
 ]
