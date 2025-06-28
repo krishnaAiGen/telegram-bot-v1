@@ -43,7 +43,6 @@ async def main():
     # Attach the event handler to the listener client
     ingestor_client.add_event_handler(lambda e: listener_handler(e, brain_queue), events.NewMessage(chats=[APP_CONFIG['telegram_group_id']]))
     
-<<<<<<< HEAD
     print("[MAIN] Connecting clients...")
     
     # Start and connect all telegram clients first
@@ -85,50 +84,6 @@ async def main():
             if not task.done():
                 task.cancel()
         raise
-=======
-    # A list to hold all our running tasks for graceful shutdown
-    tasks = []
-    try:
-        # --- CORRECT STARTUP PROCEDURE ---
-        print("[MAIN] Starting all Telegram clients...")
-        # 1. Start all clients first. This connects them.
-        for client in all_clients:
-            # The .start() method is awaitable and must be awaited.
-            await client.start() # type: ignore
-            if not await client.is_user_authorized():
-                raise Exception(f"A client is not authorized. Please log in.")
-        print("[MAIN] All clients connected and authorized.")
-        # --- END OF CORRECT STARTUP ---
-        
-        print("[MAIN] Launching background workers...")
-        # 2. Create the background tasks.
-        tasks.append(asyncio.create_task(brain_worker(brain_queue, sender_queue, persona_manager, state_manager, db)))
-        tasks.append(asyncio.create_task(sender_worker(sender_queue, sender_clients)))
-        tasks.append(asyncio.create_task(scheduler_worker(sender_queue, persona_manager, state_manager, db)))
-        
-        print("--- Bot is fully operational. Press Ctrl+C to stop. ---")
-        
-        # 3. Wait for the primary listener client to disconnect.
-        #    This keeps the script alive while the workers run in the background.
-        await ingestor_client.run_until_disconnected()
-
-    except Exception as e:
-        print(f"\nFATAL: An unhandled exception occurred: {e}")
-        traceback.print_exc()
-    finally:
-        # 4. Graceful shutdown procedure
-        print("\n[MAIN] Shutting down...")
-        for task in tasks:
-            if not task.done():
-                task.cancel()
-        
-        # Disconnect all clients
-        for client in all_clients:
-            if client.is_connected():
-                await client.disconnect() 
-        
-        print("[MAIN] Shutdown complete.")
->>>>>>> 7838f6b (Add JSON upload logic-integrate scheduler-improve the links logic)
 
 if __name__ == "__main__":
     try:
