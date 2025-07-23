@@ -35,6 +35,9 @@ APP_CONFIG = {
     "triage_model": os.getenv("TRIAGE_MODEL", "gpt-3.5-turbo"),
     "response_context_messages": int(os.getenv("RESPONSE_CONTEXT_MESSAGES",4)),
     "link_post_cooldown_mins": int(os.getenv("LINK_POST_COOLDOWN_MINS", 15)),
+    "slack_bot_token": os.getenv("SLACK_BOT_TOKEN"),
+    "slack_app_token": os.getenv("SLACK_APP_TOKEN"),
+    "slack_channel_id": os.getenv("SLACK_CHANNEL_ID"),
 }
 
 TELEGRAM_USERS = {}
@@ -53,6 +56,9 @@ if not APP_CONFIG["openai_api_key"]:
     raise ValueError("CRITICAL: OPENAI_API_KEY is not set in the .env file.")
 if not APP_CONFIG["ingestor_bot_user"] or not APP_CONFIG["sender_bot_users"]:
     raise ValueError("CRITICAL: INGESTOR_BOT_USER and SENDER_BOT_USERS must be set in .env")
+if not APP_CONFIG["slack_bot_token"] or not APP_CONFIG["slack_app_token"]:
+    raise ValueError("CRITICAL: SLACK_BOT_TOKEN and SLACK_APP_TOKEN must be set in .env")
+
 if APP_CONFIG["ingestor_bot_user"] not in TELEGRAM_USERS:
     raise ValueError(f"CRITICAL: Credentials for ingestor '{APP_CONFIG['ingestor_bot_user']}' are missing.")
 for user in APP_CONFIG["sender_bot_users"]:

@@ -1,22 +1,21 @@
 # src/core_logic/response_logic.py
 import json
 import re
-
-from config.settings import APP_CONFIG
-from src.services.openai_chat import get_llm_response
-from src.services.fetch_db import get_last_100_message_texts
-from src.core_logic.llm_personas import PersonaManager
-from src.services.state_manager import StateManager
-from src.services.openai_chat import get_embedding
-from src.services.fetch_db import get_last_n_messages_as_text
-from src.services.grok_chat import get_grok_response
-from src.core_logic.memory import get_memory_context, add_to_memory
-
-
 import time
 import os
 import numpy as np
 from sklearn.metrics.pairwise import cosine_similarity
+import asyncio
+
+from config.settings import APP_CONFIG
+from src.services.openai_chat import get_llm_response, get_embedding
+from src.services.fetch_db import get_last_100_message_texts, get_last_n_messages_as_text
+from src.core_logic.llm_personas import PersonaManager
+from src.services.state_manager import StateManager
+from src.services.grok_chat import get_grok_response
+from src.core_logic.memory import get_memory_context, add_to_memory
+from src.core_logic.internal_message import InternalMessage
+
 
 
 embeddings_path = os.path.join('data', 'persona_embeddings.json')
@@ -28,9 +27,11 @@ else:
     print("WARNING: 'persona_embeddings.json' not found. Persona matching will be disabled.")
 
 
+# Helper function to get the correct queue
+def _get_sender_queue(platform: str, queues: dict[str, asyncio.Queue]) -> asyncio.Queue | None:
+    return queues.get(f"{platform}_sender_queue")
     
-    
-async def humanize_grok_response(grok_data: str, original_question: str, persona_manager: PersonaManager, db) -> str:
+async def humanize_grok_response(grok_data: str, original_question: str, persona_manager: PersonaManager, channel_id: str, db) -> str:    
     """
     Takes raw data from Grok and uses OpenAI to transform it into a natural,
     human-sounding chat message.
@@ -39,14 +40,14 @@ async def humanize_grok_response(grok_data: str, original_question: str, persona
     
     chosen_persona = persona_manager.get_random_persona()
     if not chosen_persona:
-        return f"{grok_data}"
+        return f"NO PERSONA: {grok_data}"
 
     persona_profile = f"Role: {chosen_persona.get('role', '')}. Voice: {chosen_persona.get('signature_voice', {}).get('tone', '')}."
     print(f"[BRAIN] Using persona: {chosen_persona['persona_name']} with profile: {persona_profile}")
-
+    print(persona_profile)
     # Get last n messages from the group
     try:
-        last_n_messages = await get_last_n_messages_as_text(str(APP_CONFIG['telegram_group_id']), int(os.getenv("RESPONSE_CONTEXT_MESSAGES", "4")), db)
+        last_n_messages = await get_last_n_messages_as_text(channel_id, int(os.getenv("RESPONSE_CONTEXT_MESSAGES", "4")), db)
         print(f"-----last_n_messages-----: {last_n_messages}")
     except Exception as e:
         print(f"[BRAIN] Error getting last messages: {e}")
@@ -99,15 +100,15 @@ async def humanize_grok_response(grok_data: str, original_question: str, persona
         - If they ask direct questions, answer them clearly
         -Don't give your personas if they ask ans strict to the fact that you are a human not bot.
 
-        7. **RAW TEXT OUTPUT ONLY** - No quotes, headers, or formatting
+        8. **RAW TEXT OUTPUT ONLY** - No quotes, headers, or formatting
 
         ---
         YOUR RESPONSE:
         """
     
     try:
-        # max_token = np.random.randint(10, 25)
-        # humanized_reply = await get_llm_response(humanizer_prompt, max_tokens=30)
+        #max_token = np.random.randint(10, 25)
+        #humanized_reply = await get_llm_response(humanizer_prompt, max_tokens=30)
         humanized_reply = await get_grok_response(humanizer_prompt)
         print(f"-----humanized_reply-----: {humanized_reply}")
         
@@ -116,7 +117,7 @@ async def humanize_grok_response(grok_data: str, original_question: str, persona
         
         # Check if the response is valid
         if not humanized_reply or humanized_reply.strip() == "":
-            raise ValueError("Empty response from LLM")
+            raise ValueError("Empty response from ------------ GROK LLM -----------")
             
         print(f"[BRAIN] Successfully humanized response: '{humanized_reply}'")
         return humanized_reply
@@ -126,16 +127,15 @@ async def humanize_grok_response(grok_data: str, original_question: str, persona
         # Return the raw grok data without the "I found this update:" prefix
         return grok_data
 
-async def handle_realtime_query(message, sender_queue, persona_manager: PersonaManager, db):
+async def handle_realtime_query(message: InternalMessage, sender_queues: dict[str, asyncio.Queue], persona_manager: PersonaManager, db):
     """
     Handles real-time queries by first getting brief facts from Grok, then
     humanizing the response with OpenAI.
     """
-    print(f"[BRAIN] Routing message ID {message.id} to Grok for fact-gathering.")
-    
+    print(f"[BRAIN] Routing message ID {message.message_id} from {message.platform} to Grok.")    
     # Get memory context for the query
-    memory_context = get_memory_context(message.text)
-    print(f"-----memory_context for realtime query and for message {message.text}-----: {memory_context}")
+    memory_context = get_memory_context(message.text, message.platform, message.sender_id)
+    print(f"-----memory_context for realtime query and for message {message.text}-----: {memory_context}, {message.message_id, {'platform': message.platform, 'sender_id': message.sender_id}}")
     
     grok_prompt = f"""##0. Previous chat Context. Use anything from this context if needed to make your response more natural: {memory_context} Regarding the user's query: '{message.text}'.
 Provide the single most important fact or data point as a raw, unformatted sentence. Be extremely brief. Do not explain.
@@ -163,7 +163,7 @@ Provide the single most important fact or data point as a raw, unformatted sente
     user_to_send = APP_CONFIG['sender_bot_users'][0]
     
     await sender_queue.put({"message": final_reply, "telegram_user": user_to_send})
-    print(f"[BRAIN] Queued final (humanized) response for message {message.id}.")
+    print(f"[BRAIN] Queued final (humanized) response for message {message.message_id}.")
 
 
 async def handle_reaction(message, sender_queue, persona_manager: PersonaManager, state_manager: StateManager, db):

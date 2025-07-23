@@ -124,11 +124,11 @@ class StateManager:
         self.save_bot_state(bot_core_state)
 
     # --- Methods for Message and Topic Logs ---
-    def has_processed(self, message_id: int) -> bool:
+    def has_processed(self, message_id: str) -> bool:
         full_state = self._load_state()
         return str(message_id) in full_state.get("processed_log", {})
 
-    def log_processed(self, message_id: int):
+    def log_processed(self, message_id: str):
         full_state = self._load_state()
         if "processed_log" not in full_state:
             full_state["processed_log"] = {}

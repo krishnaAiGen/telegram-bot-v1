@@ -8,6 +8,7 @@ from src.core_logic.llm_personas import PersonaManager
 from src.core_logic.response_logic import handle_reaction, handle_initiation, handle_realtime_query
 from src.services.fetch_db import save_message_to_db
 from src.services.openai_chat import get_llm_response
+from src.core_logic.internal_message import InternalMessage
 
 async def brain_worker(brain_queue: asyncio.Queue, sender_queue: asyncio.Queue, persona_manager: PersonaManager, state_manager: StateManager, db):
     print("[BRAIN] Worker started.")
@@ -15,19 +16,19 @@ async def brain_worker(brain_queue: asyncio.Queue, sender_queue: asyncio.Queue, 
     
     while True:
         try:
-            message = await asyncio.wait_for(brain_queue.get(), timeout=1.0)
+            message: InternalMessage = await asyncio.wait_for(brain_queue.get(), timeout=1.0)
             
-            save_message_to_db(str(APP_CONFIG['telegram_group_id']), message, db)
+            save_message_to_db(message.channel_id, message, db)
             
             actual_sender_id = getattr(message.sender, 'id', None)
             if actual_sender_id in APP_CONFIG.get('known_bot_ids', []):
-                state_manager.log_processed(message.id)
+                state_manager.log_processed(message.message_id)
                 brain_queue.task_done()
                 continue
             
-            if not state_manager.has_processed(message.id):
+            if not state_manager.has_processed(message.message_id):
                 # --- STAGE 1: TRIAGE ---
-                print(f"[BRAIN] Triage: Analyzing message ID {message.id}...")
+                print(f"[BRAIN] Triage: Analyzing message ID {message.message_id}...")
                 triage_prompt = f"""Prompt Structure:
 ROLE: "You are a hyper-efficient routing agent. Your only job is to classify an incoming user message into one of two categories: REALTIME_FACTS or PERSONA_OPINION."
 CATEGORY DEFINITIONS:
@@ -60,7 +61,7 @@ USER MESSAGE: {message.text}"
                         if roll > response_rate:
                             print(f"[BRAIN] Probability gate: Rolled {roll:.2f} > {response_rate}. Choosing not to reply.")
                             # Still log as processed so we don't re-evaluate this message
-                            state_manager.log_processed(message.id)
+                            state_manager.log_processed(message.message_id)
                             brain_queue.task_done()
                             continue
                         else:
@@ -70,11 +71,11 @@ USER MESSAGE: {message.text}"
                     await handle_reaction(message, sender_queue, persona_manager, state_manager, db)
 
                 # Log and update state after any action is taken
-                state_manager.log_processed(message.id)
+                state_manager.log_processed(message.message_id)
                 bot_state["last_activity_time"] = time.time()
                 state_manager.save_bot_state(bot_state)
             else:
-                 print(f"[BRAIN] Message ID {message.id} has already been processed.")
+                 print(f"[BRAIN] Message ID {message.message_id} has already been processed.")
             brain_queue.task_done()
 
         except asyncio.TimeoutError:
