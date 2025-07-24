@@ -23,6 +23,7 @@ async def slack_listener_worker(app: AsyncApp, brain_queue: Queue, target_channe
         # --- We now check the channel ID inside the handler ---
         channel_id = event.get("channel")
         
+
         # 1. Ignore messages that are not from our target channel
         if channel_id != target_channel_id:
             return
@@ -34,6 +35,8 @@ async def slack_listener_worker(app: AsyncApp, brain_queue: Queue, target_channe
         text = event.get("text")
         if not text:
             return
+        
+        print(f"[SLACK_DEBUG] Message received. Event User ID: {event.get('user')}, Bot ID: {event.get('bot_id')}")
 
         print(f"[SLACK_LISTENER] Received Slack message in target channel: '{text[:50]}...'")
 

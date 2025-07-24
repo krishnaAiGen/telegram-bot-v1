@@ -6,7 +6,7 @@
     "posting_strategy": "recurrent",
     "type": "Crypto News",
     "platform": "telegram",
-    "channel_id": "1002701374886" 
+    "channel_id": "-1002701374886" 
   },
   {
     "link": "https://a16zcrypto.com/posts/",
@@ -15,7 +15,7 @@
     "posting_strategy": "recurrent",
     "type": "Web3 Research",
     "platform": "telegram",
-    "channel_id": "1002701374886"
+    "channel_id": "-1002701374886"
   },
   {
     "link": "https://www.theverge.com/ai",
