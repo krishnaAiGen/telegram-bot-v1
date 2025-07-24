@@ -12,9 +12,9 @@ import firebase_admin
 from firebase_admin import credentials, firestore
 
 # Import the refactored worker functions
-from src.workers.listener import listener_handler
+from src.listener.telegram_listener import listener_handler
 from src.workers.brain import brain_worker
-from src.workers.sender import sender_worker
+from src.sender.telegram_sender import sender_worker
 from src.workers.scheduler import scheduler_worker
 
 async def main():
