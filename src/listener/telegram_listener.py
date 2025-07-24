@@ -1,15 +1,16 @@
 # src/listeners/telegram_listener.py
 
 import asyncio
-from telethon import events
+from telethon import TelegramClient, events
 from src.core_logic.internal_message import InternalMessage
+from asyncio import Queue
 
-async def telegram_listener_worker(client: events.NewMessage.Event, brain_queue: asyncio.Queue, group_id: int):
+def telegram_listener_worker(client: TelegramClient, brain_queue: Queue, group_id: int):
     """
-    A dedicated worker that listens for Telegram messages, converts them,
-    and puts them on the brain_queue.
+    Sets up the event handler for the Telegram client.
+    This function doesn't run the client, it just prepares it.
     """
-    print("[TELEGRAM_LISTENER] Worker started.")
+    print("[TELEGRAM_LISTENER] Setting up event handler...")
     
     @client.on(events.NewMessage(chats=[group_id]))
     async def handler(event: events.NewMessage.Event):
@@ -19,8 +20,6 @@ async def telegram_listener_worker(client: events.NewMessage.Event, brain_queue:
 
         print(f"[TELEGRAM_LISTENER] Received Telegram message: '{message.text[:50]}...'")
 
-        # Create the InternalMessage, ensuring all IDs are strings.
-        # This fixes the potential bugs.
         internal_msg = InternalMessage(
             platform='telegram',
             channel_id=str(message.chat_id),
@@ -30,7 +29,5 @@ async def telegram_listener_worker(client: events.NewMessage.Event, brain_queue:
         )
         
         await brain_queue.put(internal_msg)
-    
-    # The worker's job is to keep the client running.
-    # The client.run_until_disconnected() in main.py handles this.
-    await client.run_until_disconnected()
+
+    print("[TELEGRAM_LISTENER] Event handler registered.")
