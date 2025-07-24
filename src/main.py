@@ -63,12 +63,21 @@ async def main():
     #ingestor_client.add_event_handler(lambda e: listener_handler(e, brain_queue), events.NewMessage(chats=[APP_CONFIG['telegram_group_id']]))
     
     try:
-        # Using a TaskGroup is a modern and safer way to manage concurrent tasks.
-        # It automatically handles cancellation and waits for all tasks to finish.
+        # --- 4. CONNECT AND AUTHORIZE ALL TELEGRAM CLIENTS ---
+        # This must be done sequentially before starting the main workers.
+        print("[MAIN] Connecting and authorizing all Telegram clients...")
+        for client in all_clients:
+            # .start() will connect and log in. It will use the .session file if it exists,
+            # or prompt for credentials if it's the first time.
+            await client.start()
+            if not await client.is_user_authorized():
+                raise Exception(f"Telegram client for session '{client.session}' is not authorized.")
+        print("[MAIN] All Telegram clients are connected and authorized.")
+
+        # --- 5. LAUNCH ALL BACKGROUND WORKERS ---
+        print("[MAIN] Launching all background workers...")
         async with asyncio.TaskGroup() as tg:
-            # --- 5. CREATE AND LAUNCH ALL TASKS ---
-            
-            # Start the long-running client connections
+            # Start the long-running client connection handlers
             tg.create_task(slack_socket_handler.start_async())
             for client in all_clients:
                 tg.create_task(client.run_until_disconnected())
@@ -81,16 +90,13 @@ async def main():
             tg.create_task(slack_sender_worker(sender_queues["slack_sender_queue"], slack_web_client))
         
             print("--- Bot is fully operational on Telegram and Slack. Press Ctrl+C to stop. ---")
-            # The 'with' block will not exit until all tasks are complete or one fails.
-
+            
     except* Exception as eg:
-        # This syntax is specific to TaskGroup and handles multiple exceptions
         print(f"--- Main task group encountered errors: ---")
         for exc in eg.exceptions:
             traceback.print_exception(type(exc), exc, exc.__traceback__)
     finally:
-        # When the 'with' block exits (due to error or cancellation), the TaskGroup
-        # ensures all tasks are stopped. We just need to disconnect clients.
+        # --- 6. GRACEFUL SHUTDOWN ---
         print("[MAIN] Shutting down...")
         for client in all_clients:
             if client.is_connected():

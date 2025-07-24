@@ -5,7 +5,7 @@ from telethon import TelegramClient, events
 from src.core_logic.internal_message import InternalMessage
 from asyncio import Queue
 
-def telegram_listener_worker(client: TelegramClient, brain_queue: Queue, group_id: int):
+def setup_telegram_listener(client: TelegramClient, brain_queue: Queue, group_id: int):
     """
     Sets up the event handler for the Telegram client.
     This function doesn't run the client, it just prepares it.
