@@ -1,11 +1,12 @@
 # src/main.py
+
 import asyncio
 import os
 import traceback
 from telethon import TelegramClient
 from slack_bolt.async_app import AsyncApp
 from slack_bolt.adapter.socket_mode.async_handler import AsyncSocketModeHandler
-
+import discord
 
 # Import configurations and managers
 from config.settings import APP_CONFIG, TELEGRAM_USERS
@@ -14,13 +15,15 @@ from src.core_logic.llm_personas import PersonaManager
 import firebase_admin
 from firebase_admin import credentials, firestore
 
-# Import our new, modular workers from their correct locations
-from src.listener.telegram_listener import setup_telegram_listener
-from src.listener.slack_listener import slack_listener_worker
+# Import all modular components
+from src.listeners.telegram_listener import setup_telegram_listener
+from src.listeners.slack_listener import slack_listener_worker
+from src.listeners.discord_listener import setup_discord_listener
+from src.senders.telegram_sender import telegram_sender_worker
+from src.senders.slack_sender import slack_sender_worker
+from src.senders.discord_sender import discord_sender_worker
 from src.workers.brain import brain_worker
 from src.workers.scheduler import scheduler_worker
-from src.sender.telegram_sender import telegram_sender_worker
-from src.sender.slack_sender import slack_sender_worker
 
 async def main():
     """
@@ -32,6 +35,7 @@ async def main():
     sender_queues = {
         "telegram_sender_queue": asyncio.Queue(),
         "slack_sender_queue": asyncio.Queue(),
+        "discord_sender_queue": asyncio.Queue(),
     }
     
     
@@ -43,65 +47,94 @@ async def main():
     state_manager = StateManager(db)
     persona_manager = PersonaManager()
     
+    # --- 2. PLATFORM CLIENTS INITIALIZATION ---
+
+    
     # Create all Telegram client objects
-    ingestor_user = APP_CONFIG['ingestor_bot_user']
-    sender_users = APP_CONFIG['sender_bot_users']
-    ingestor_client = TelegramClient(os.path.join(APP_CONFIG['data_dir'], ingestor_user), int(TELEGRAM_USERS[ingestor_user]['api_id']), TELEGRAM_USERS[ingestor_user]['api_hash'])
-    sender_clients = {u: TelegramClient(os.path.join(APP_CONFIG['data_dir'], u), int(TELEGRAM_USERS[u]['api_id']), TELEGRAM_USERS[u]['api_hash']) for u in sender_users}
-    all_clients = [ingestor_client] + list(sender_clients.values())
+    ingestor_client = None
+    sender_clients = {}
+    all_telegram_clients = []
+    if APP_CONFIG.get("ingestor_bot_user") and APP_CONFIG.get("sender_bot_users"):
+        ingestor_user = APP_CONFIG['ingestor_bot_user']
+        sender_users = APP_CONFIG['sender_bot_users']
+        ingestor_client = TelegramClient(os.path.join(APP_CONFIG['data_dir'], ingestor_user), int(TELEGRAM_USERS[ingestor_user]['api_id']), TELEGRAM_USERS[ingestor_user]['api_hash'])
+        sender_clients = {u: TelegramClient(os.path.join(APP_CONFIG['data_dir'], u), int(TELEGRAM_USERS[u]['api_id']), TELEGRAM_USERS[u]['api_hash']) for u in sender_users}
+        all_telegram_clients = [ingestor_client] + list(sender_clients.values())
     
     # Slack Client
-    slack_app = AsyncApp(token=APP_CONFIG['slack_bot_token'])
-    slack_web_client = slack_app.client
-    slack_socket_handler = AsyncSocketModeHandler(slack_app, APP_CONFIG['slack_app_token'])
+    slack_app = None
+    slack_web_client = None
+    slack_socket_handler = None
+    if APP_CONFIG.get("slack_bot_token") and APP_CONFIG.get("slack_app_token"):
+        slack_app = AsyncApp(token=APP_CONFIG['slack_bot_token'])
+        slack_web_client = slack_app.client
+        slack_socket_handler = AsyncSocketModeHandler(slack_app, APP_CONFIG['slack_app_token'])
     
-    setup_telegram_listener(ingestor_client, brain_queue, APP_CONFIG['telegram_group_id'])
     
-    print("[MAIN] Launching all background workers and connecting clients...")
-    
-    # Attach the event handler to the listener client
-    #ingestor_client.add_event_handler(lambda e: listener_handler(e, brain_queue), events.NewMessage(chats=[APP_CONFIG['telegram_group_id']]))
-    
-    try:
-        # --- 4. CONNECT AND AUTHORIZE ALL TELEGRAM CLIENTS ---
-        # This must be done sequentially before starting the main workers.
-        print("[MAIN] Connecting and authorizing all Telegram clients...")
-        for client in all_clients:
-            # .start() will connect and log in. It will use the .session file if it exists,
-            # or prompt for credentials if it's the first time.
-            await client.start()
-            if not await client.is_user_authorized():
-                raise Exception(f"Telegram client for session '{client.session}' is not authorized.")
-        print("[MAIN] All Telegram clients are connected and authorized.")
+    discord_client = None
+    if APP_CONFIG.get("discord_bot_token"):
+        intents = discord.Intents.default()
+        intents.message_content = True
+        intents.messages = True
+        discord_client = discord.Client(intents=intents)
 
-        # --- 5. LAUNCH ALL BACKGROUND WORKERS ---
+    
+    
+    # --- 3. BOT LIFECYCLE MANAGEMENT ---
+    try:
+        # --- CONNECT CLIENTS (SEQUENTIALLY) ---
+        if all_telegram_clients:
+            print("[MAIN] Connecting and authorizing all Telegram clients...")
+            for client in all_telegram_clients:
+                await client.start()
+                if not await client.is_user_authorized():
+                    raise Exception(f"Telegram client for session '{client.session.filename}' is not authorized.")
+            print("[MAIN] All Telegram clients connected and authorized.")
+        
+        # --- LAUNCH ALL WORKERS (CONCURRENTLY) ---
         print("[MAIN] Launching all background workers...")
         async with asyncio.TaskGroup() as tg:
-            # Start the long-running client connection handlers
-            tg.create_task(slack_socket_handler.start_async())
-            for client in all_clients:
+            
+            # --- START LONG-RUNNING CLIENTS ---
+            if slack_socket_handler:
+                tg.create_task(slack_socket_handler.start_async())
+            if discord_client:
+                tg.create_task(discord_client.start(APP_CONFIG['discord_bot_token']))
+            for client in all_telegram_clients:
                 tg.create_task(client.run_until_disconnected())
 
-            # Start our custom workers
-            tg.create_task(slack_listener_worker(slack_app, brain_queue, APP_CONFIG['slack_channel_id']))
+            # --- START LISTENERS ---
+            if ingestor_client and APP_CONFIG.get("telegram_group_id"):
+                setup_telegram_listener(ingestor_client, brain_queue, APP_CONFIG['telegram_group_id'])
+            if slack_app and APP_CONFIG.get("slack_channel_id"):
+                tg.create_task(slack_listener_worker(slack_app, brain_queue, APP_CONFIG['slack_channel_id']))
+            if discord_client and APP_CONFIG.get("discord_channel_id"):
+                setup_discord_listener(discord_client, brain_queue, APP_CONFIG['discord_channel_id'])
+                
+            # --- START CORE & SENDER WORKERS ---
             tg.create_task(brain_worker(brain_queue, sender_queues, persona_manager, state_manager, db))
             tg.create_task(scheduler_worker(sender_queues, persona_manager, state_manager, db))
             tg.create_task(telegram_sender_worker(sender_queues["telegram_sender_queue"], sender_clients))
             tg.create_task(slack_sender_worker(sender_queues["slack_sender_queue"], slack_web_client))
-        
-            print("--- Bot is fully operational on Telegram and Slack. Press Ctrl+C to stop. ---")
-            
+            tg.create_task(discord_sender_worker(sender_queues["discord_sender_queue"], discord_client))
+
+            print("--- Bot is fully operational on configured platforms. Press Ctrl+C to stop. ---")
+
     except* Exception as eg:
         print(f"--- Main task group encountered errors: ---")
         for exc in eg.exceptions:
             traceback.print_exception(type(exc), exc, exc.__traceback__)
     finally:
-        # --- 6. GRACEFUL SHUTDOWN ---
+        # --- GRACEFUL SHUTDOWN ---
         print("[MAIN] Shutting down...")
-        for client in all_clients:
-            if client.is_connected():
-                await client.disconnect()
+        if all_telegram_clients:
+            for client in all_telegram_clients:
+                if client.is_connected():
+                    await client.disconnect()
+        if discord_client and discord_client.is_ready():
+            await discord_client.close()
         print("[MAIN] All clients disconnected. Shutdown complete.")
+
 
 if __name__ == "__main__":
     try:

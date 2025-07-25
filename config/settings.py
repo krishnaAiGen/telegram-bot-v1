@@ -38,6 +38,8 @@ APP_CONFIG = {
     "slack_bot_token": os.getenv("SLACK_BOT_TOKEN"),
     "slack_app_token": os.getenv("SLACK_APP_TOKEN"),
     "slack_channel_id": os.getenv("SLACK_CHANNEL_ID"),
+    "discord_bot_token": os.getenv("DISCORD_BOT_TOKEN"),
+    "discord_channel_id": os.getenv("DISCORD_CHANNEL_ID"),
 }
 
 TELEGRAM_USERS = {}
@@ -58,6 +60,8 @@ if not APP_CONFIG["ingestor_bot_user"] or not APP_CONFIG["sender_bot_users"]:
     raise ValueError("CRITICAL: INGESTOR_BOT_USER and SENDER_BOT_USERS must be set in .env")
 if not APP_CONFIG["slack_bot_token"] or not APP_CONFIG["slack_app_token"]:
     raise ValueError("CRITICAL: SLACK_BOT_TOKEN and SLACK_APP_TOKEN must be set in .env")
+if not APP_CONFIG["discord_bot_token"] or not APP_CONFIG["discord_channel_id"]:
+    print("Warning: DISCORD_BOT_TOKEN or DISCORD_CHANNEL_ID not set. Discord functionality will be disabled.")
 
 if APP_CONFIG["ingestor_bot_user"] not in TELEGRAM_USERS:
     raise ValueError(f"CRITICAL: Credentials for ingestor '{APP_CONFIG['ingestor_bot_user']}' are missing.")
