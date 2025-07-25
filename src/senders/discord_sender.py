@@ -26,11 +26,11 @@ async def discord_sender_worker(queue: Queue, client: discord.Client):
             # discord.py needs the channel ID as an integer
             channel = client.get_channel(int(channel_id_str))
             
-            if channel:
+            if channel and isinstance(channel, discord.abc.Messageable):
                 await channel.send(text)
                 print(f"[DISCORD_SENDER] Message sent successfully to channel {channel_id_str}.")
             else:
-                print(f"[DISCORD_SENDER] ERROR: Could not find channel with ID {channel_id_str}.")
+                print(f"[DISCORD_SENDER] ERROR: Could not find a messageable channel with ID {channel_id_str}.")
 
             # Optional delay to prevent rate-limiting
             await asyncio.sleep(random.uniform(1.0, 3.0)) # Discord can be sensitive to rate limits
