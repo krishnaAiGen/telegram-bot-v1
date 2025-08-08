@@ -6,11 +6,10 @@ from typing import Any, Dict, List
 import sys
 import os
 
-# --- This is a trick to allow this standalone module to find the main project's config ---
 # It adds the parent directory ('telegram-bot-v1') to the Python path
 project_root = os.path.abspath(os.path.join(os.path.dirname(__file__), '..', '..'))
 sys.path.insert(0, project_root)
-# Now we can import from the main project's config
+
 from config.settings import APP_CONFIG
 
 # --- Initialize the OpenAI Client ---

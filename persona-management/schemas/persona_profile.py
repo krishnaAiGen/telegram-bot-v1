@@ -30,3 +30,4 @@ class PersonaProfile(BaseModel):
     key_traits: List[str]
     knowledge_boundaries: KnowledgeBoundaries
     examples: List[ExampleInteraction]
+    interaction_rules: List[str] = Field(default_factory=list, description="Rules for how this persona interacts with others.")
