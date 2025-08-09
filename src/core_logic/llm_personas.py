@@ -1,3 +1,4 @@
+# src/core_logic/llm_personas.py
 import random
 from config.settings import CHARACTERS_DATA
 

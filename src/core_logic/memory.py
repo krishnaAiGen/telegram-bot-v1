@@ -8,62 +8,23 @@ load_dotenv()
 # Initialize Mem0 client
 memory_client = MemoryClient(api_key=os.getenv("MEM0_API_KEY"))
 
-async def handle_memory(query: str, type: str, user_id: str = "telegram_bot") -> str:
-    """
-    Handle memory operations for the telegram bot.
-    
-    Args:
-        query: The text content to process
-        type: Either "query" or "response" 
-        user_id: Unique identifier for the user/bot
-        
-    Returns:
-        String of relevant memories (empty if type is "response")
-    """
-    try:
-        if type == "query":
-            # Search for relevant memories first
-            search_result = memory_client.search(query=query, user_id=user_id, limit=5)
-            
-            # Handle different response structures
-            if isinstance(search_result, list):
-                relevant_memories = [entry.get("memory", "") for entry in search_result if isinstance(entry, dict)]
-            elif isinstance(search_result, dict) and "results" in search_result:
-                relevant_memories = [entry.get("memory", "") for entry in search_result["results"]]
-            else:
-                relevant_memories = []
-            
-            # Add the query to memory
-            memory_client.add([{"role": "user", "content": query}], user_id=user_id)
-            
-            # Format relevant memories for prompt
-            if relevant_memories:
-                memories_str = "\n".join(f"- {m}" for m in relevant_memories if m)
-                return f"Previous relevant interactions:\n{memories_str}\n\n"
-            else:
-                return ""
-                
-        elif type == "response":
-            # Just add the response to memory, don't search
-            memory_client.add([{"role": "assistant", "content": query}], user_id=user_id)
-            return ""
-        else:
-            print(f"[MEMORY] Invalid type '{type}'. Must be 'query' or 'response'")
-            return ""
-            
-    except Exception as e:
-        print(f"[MEMORY] Error handling memory operation: {e}")
-        return ""
+def _generate_user_id(platform: str, user_id: str) -> str:
+    """Creates a unique, composite user ID for mem0, e.g., 'telegram_12345'."""
+    return f"{platform}_{user_id}"
 
-def get_memory_context(query: str, user_id: str = "telegram_bot") -> str:
+# MODIFIED: Now accepts platform and user_id, replacing the old hardcoded user_id
+def get_memory_context(query: str, platform: str, user_id: str) -> str:
     """
     Get relevant memory context for a query without adding it to memory.
-    Useful for getting context before LLM calls.
+    Now uses a platform-specific user ID.
     """
+    # Create the dynamic ID for this specific user on this specific platform
+    mem0_user_id = _generate_user_id(platform, user_id)
+    
     try:
-        search_result = memory_client.search(query=query, user_id=user_id, limit=5)
+        search_result = memory_client.search(query=query, user_id=mem0_user_id, limit=5)
         
-        # Handle different response structures
+        # Your original logic for handling the response structure is kept
         if isinstance(search_result, list):
             relevant_memories = [entry.get("memory", "") for entry in search_result if isinstance(entry, dict)]
         elif isinstance(search_result, dict) and "results" in search_result:
@@ -78,20 +39,25 @@ def get_memory_context(query: str, user_id: str = "telegram_bot") -> str:
             return ""
             
     except Exception as e:
-        print(f"[MEMORY] Error getting memory context: {e}")
+        print(f"[MEMORY] Error getting memory context for '{mem0_user_id}': {e}")
         return ""
 
-def add_to_memory(content: str, role: str = "assistant", user_id: str = "telegram_bot"):
+# MODIFIED: Now accepts platform and user_id, replacing the old hardcoded user_id
+def add_to_memory(content: str, role: str, platform: str, user_id: str):
     """
-    Add content to memory without searching.
+    Add content to memory without searching, using a platform-specific ID.
     
     Args:
         content: The content to add
         role: Either "user" or "assistant"
-        user_id: Unique identifier for the user/bot
+        platform: The originating platform (e.g., 'telegram', 'slack')
+        user_id: The user's ID on that platform
     """
+    # Create the dynamic ID for this specific user on this specific platform
+    mem0_user_id = _generate_user_id(platform, user_id)
+    
     try:
-        memory_client.add([{"role": role, "content": content}], user_id=user_id)
-        print(f"[MEMORY] Added {role} content to memory")
+        memory_client.add([{"role": role, "content": content}], user_id=mem0_user_id)
+        print(f"[MEMORY] Added {role} content to memory for '{mem0_user_id}'")
     except Exception as e:
-        print(f"[MEMORY] Error adding to memory: {e}") 
+        print(f"[MEMORY] Error adding to memory for '{mem0_user_id}': {e}")

@@ -1,5 +1,7 @@
-# Core Telegram Bot Framework
+# Core Bot Framework
 telethon>=1.28.0
+slack_bolt>=1.18.0       
+discord.py>=2.3.0 
 
 # Environment and Configuration
 python-dotenv>=1.0.0
