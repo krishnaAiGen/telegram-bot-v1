@@ -2,7 +2,7 @@
 
 import json
 from ..schemas.pipeline_state import PipelineState
-from ..schemas.persona_profile import PersonaProfile
+from ..schemas.persona_profile import Persona
 from ..services.llm_service import generate_json_response
 
 LINKER_PROMPT_TEMPLATE = """

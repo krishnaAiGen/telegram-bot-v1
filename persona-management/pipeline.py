@@ -9,8 +9,10 @@ from .agents import (
     optimizer,
     validator,
     feedback_loop,
-    linker
+    linker,
+    formatter
 )
+
 
 # A mapping of status to the agent function that should be run.
 AGENT_MAPPING = {
@@ -92,7 +94,13 @@ async def run_persona_factory_pipeline(initial_prompt: str, max_retries: int = 2
         print("Pipeline completed successfully.")
         # Convert Pydantic models to a list of dicts for clean JSON output
         final_personas = [p.model_dump() for p in state.generated_personas]
-        return {"status": "success", "personas": final_personas}
+        final_characters = formatter.run_formatter_agent(state)
+        
+        # Convert the final Character objects to a list of dicts for JSON output.
+        final_output_dict = [char.model_dump() for char in final_characters]
+        
+        return {"status": "success", "characters": final_output_dict, "personas": final_personas}
+    
     else:
         print(f"Pipeline failed. Reason: {state.feedback_notes}")
         return {"status": "failed", "reason": state.feedback_notes}

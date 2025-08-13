@@ -2,7 +2,7 @@
 
 from pydantic import BaseModel, Field
 from typing import List, Literal, Dict, Any
-from .persona_profile import PersonaProfile
+from .persona_profile import Persona
 
 class PersonaBlueprint(BaseModel):
     """A high-level plan for a persona before it's fully crafted."""
@@ -24,7 +24,7 @@ class PipelineState(BaseModel):
     # Data fields that get populated by agents
     planned_tasks: List[str] = Field(default_factory=list)
     persona_blueprints: List[PersonaBlueprint] = Field(default_factory=list)
-    generated_personas: List[PersonaProfile] = Field(default_factory=list)
+    generated_personas: List[Persona] = Field(default_factory=list)
     
     # For feedback and control flow
     feedback_notes: str | None = None

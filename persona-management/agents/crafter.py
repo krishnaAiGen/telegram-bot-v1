@@ -2,7 +2,7 @@
 
 from typing import List
 from ..schemas.pipeline_state import PipelineState
-from ..schemas.persona_profile import PersonaProfile
+from ..schemas.persona_profile import Persona
 from ..services.llm_service import generate_json_response
 import asyncio
 
@@ -61,7 +61,7 @@ async def run_crafter_agent(state: PipelineState) -> PipelineState:
         state.feedback_notes = error_message
         return state
         
-    crafted_personas: List[PersonaProfile] = []
+    crafted_personas: List[Persona] = []
     
     # We will run the LLM calls for each blueprint concurrently for speed.
     tasks = []
@@ -87,7 +87,7 @@ async def run_crafter_agent(state: PipelineState) -> PipelineState:
         try:
             # Use Pydantic to parse the entire complex object.
             # This is the ultimate validation step.
-            full_profile = PersonaProfile(**result)
+            full_profile = Persona(**result)
             crafted_personas.append(full_profile)
             print(f"  - Successfully crafted persona: '{full_profile.persona_name}'")
 

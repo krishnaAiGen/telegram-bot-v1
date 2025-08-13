@@ -2,7 +2,7 @@
 
 import json
 from ..schemas.pipeline_state import PipelineState
-from ..schemas.persona_profile import PersonaProfile
+from ..schemas.persona_profile import Persona
 from ..services.llm_service import generate_json_response
 
 OPTIMIZER_PROMPT_TEMPLATE = """
@@ -44,7 +44,7 @@ async def run_optimizer_agent(state: PipelineState) -> PipelineState:
     if "optimized_personas" in llm_response and isinstance(llm_response["optimized_personas"], list):
         try:
             # Validate the new, optimized list against our strict PersonaProfile schema
-            optimized_list = [PersonaProfile(**p) for p in llm_response["optimized_personas"]]
+            optimized_list = [Persona(**p) for p in llm_response["optimized_personas"]]
             
             original_count = len(state.generated_personas)
             new_count = len(optimized_list)
