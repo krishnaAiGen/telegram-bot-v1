@@ -1,0 +1,6 @@
+[project]
+name = "ai_persona_bot"
+version = "1.0.0"
+
+[tool.setuptools]
+packages = ["src","config", "dashboard", "persona-management"]

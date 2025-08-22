@@ -1,0 +1,597 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>AI Persona Dashboard</title>
+    <style>
+        :root {
+            --primary-color: #4F46E5;
+            --primary-hover: #4338CA;
+            --accent-color: #EC4899;
+            --accent-hover: #DB2777;
+            --danger-color: #EF4444;
+            --success-color: #10B981;
+            --bg-color: #F8FAFC;
+            --card-bg: #FFFFFF;
+            --border-color: #E2E8F0;
+            --text-dark: #1E293B;
+            --text-medium: #64748B;
+            --text-light: #94A3B8;
+        }
+
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+
+        body {
+            font-family: 'Inter', -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+            background-color: var(--bg-color);
+            color: var(--text-dark);
+            line-height: 1.6;
+        }
+
+        .container { max-width: 1200px; margin: 40px auto; padding: 0 20px; }
+        .screen { display: none; }
+        .screen.active { display: block; }
+
+        /* Buttons */
+        .btn {
+            display: inline-flex; align-items: center; gap: 8px;
+            padding: 10px 20px; border: none; border-radius: 8px;
+            font-weight: 600; font-size: 15px; cursor: pointer; 
+            transition: all 0.2s ease; white-space: nowrap;
+        }
+        .btn:hover { transform: translateY(-2px); box-shadow: 0 4px 12px rgba(0,0,0,0.1); }
+        .btn:disabled { background-color: var(--text-light); cursor: not-allowed; transform: none; box-shadow: none; }
+        .btn-primary { background-color: var(--primary-color); color: white; }
+        .btn-primary:hover:not(:disabled) { background-color: var(--primary-hover); }
+        .btn-accent { background-color: var(--accent-color); color: white; }
+        .btn-accent:hover:not(:disabled) { background-color: var(--accent-hover); }
+        .btn-danger { background-color: var(--danger-color); color: white; }
+        .btn-secondary { background: white; color: var(--text-dark); border: 1px solid var(--border-color); }
+        .btn-secondary:hover { background-color: #f8fafc; }
+
+        /* Forms */
+        .form-group { margin-bottom: 20px; }
+        label { display: block; margin-bottom: 8px; font-weight: 500; color: var(--text-dark); }
+        input[type="text"], input[type="email"], input[type="password"], textarea {
+            width: 100%; padding: 12px; border: 1px solid var(--border-color); 
+            border-radius: 8px; font-size: 16px; background-color: white; 
+            transition: all 0.2s ease;
+        }
+        input:focus, textarea:focus { 
+            border-color: var(--primary-color); 
+            box-shadow: 0 0 0 3px rgba(79, 70, 229, 0.1); 
+            outline: none; 
+        }
+        textarea { resize: vertical; min-height: 120px; }
+
+        /* Auth Screen */
+        .auth-container { 
+            max-width: 420px; margin: 100px auto; background: var(--card-bg); 
+            padding: 40px; border-radius: 12px; 
+            box-shadow: 0 10px 30px rgba(0,0,0,0.08); text-align: center; 
+        }
+        .auth-container h1 { font-size: 28px; margin-bottom: 30px; }
+
+        /* Dashboard */
+        .dashboard-header { 
+            display: flex; justify-content: space-between; align-items: center; 
+            padding-bottom: 20px; border-bottom: 1px solid var(--border-color); 
+            margin-bottom: 30px; 
+        }
+        .dashboard-header h1 { font-size: 28px; }
+
+        .section { 
+            background: var(--card-bg); padding: 30px; border-radius: 12px; 
+            box-shadow: 0 4px 12px rgba(0,0,0,0.05); margin-bottom: 30px; 
+        }
+        .section-header { 
+            display: flex; flex-wrap: wrap; justify-content: space-between; 
+            align-items: center; gap: 15px; margin-bottom: 20px; 
+            padding-bottom: 15px; border-bottom: 1px solid var(--border-color);
+        }
+        .section-header h2 { font-size: 22px; margin: 0; }
+        .section-header .actions { display: flex; flex-wrap: wrap; gap: 10px; }
+
+        #persona-grid { 
+            display: grid; grid-template-columns: repeat(auto-fill, minmax(350px, 1fr)); 
+            gap: 20px; 
+        }
+        .persona-card { 
+            border: 1px solid var(--border-color); border-radius: 12px; 
+            padding: 20px; background: white; transition: all 0.2s ease; 
+            display: flex; flex-direction: column; 
+        }
+        .persona-card:hover { 
+            border-color: var(--primary-color); transform: translateY(-2px); 
+            box-shadow: 0 8px 20px rgba(0,0,0,0.07); 
+        }
+        .persona-card h3 { font-size: 18px; color: var(--primary-color); margin-bottom: 4px; }
+        .persona-card .role { font-weight: 600; color: var(--text-medium); margin-bottom: 10px; }
+        .persona-card .tagline { 
+            font-style: italic; color: var(--text-light); margin-bottom: 15px; 
+            font-size: 14px; flex-grow: 1; 
+        }
+        .tags { display: flex; flex-wrap: wrap; gap: 8px; font-size: 12px; margin-top: 10px;}
+        .tag { 
+            background: var(--bg-color); color: var(--text-medium); 
+            padding: 4px 10px; border-radius: 16px; font-weight: 500; 
+        }
+        .card-actions { margin-top: 20px; display: flex; gap: 10px; justify-content: flex-end; }
+
+        /* Empty State */
+        .empty-state { text-align: center; padding: 40px; color: var(--text-medium); }
+        .empty-state-icon { font-size: 48px; margin-bottom: 15px; }
+
+        /* Notification */
+        #notification {
+            position: fixed; bottom: 20px; left: 50%; transform: translateX(-50%);
+            padding: 12px 25px; border-radius: 8px; color: white;
+            box-shadow: 0 5px 15px rgba(0,0,0,0.2);
+            opacity: 0; visibility: hidden; transition: all 0.4s ease; z-index: 2000;
+        }
+        #notification.show { opacity: 1; visibility: visible; bottom: 30px; }
+        #notification.success { background-color: var(--success-color); }
+        #notification.error { background-color: var(--danger-color); }
+        #notification.info { background-color: var(--text-medium); }
+
+        /* Loading */
+        .loading { opacity: 0.6; pointer-events: none; }
+        .spinner { 
+            display: inline-block; width: 16px; height: 16px; 
+            border: 2px solid transparent; border-top: 2px solid currentColor; 
+            border-radius: 50%; animation: spin 1s linear infinite; 
+        }
+        @keyframes spin { 0% { transform: rotate(0deg); } 100% { transform: rotate(360deg); } }
+    </style>
+</head>
+<body>
+    <!-- Login Screen -->
+    <div class="screen active" id="login-screen">
+        <div class="auth-container">
+            <h1>AI Persona Dashboard</h1>
+            <div class="form-group">
+                <label for="login-email" style="text-align: left;">Email</label>
+                <input type="email" id="login-email" value="demo@persona.ai">
+            </div>
+            <div class="form-group">
+                <label for="login-password" style="text-align: left;">Password</label>
+                <input type="password" id="login-password" value="password">
+            </div>
+            <button class="btn btn-primary" style="width: 100%;" onclick="handleLogin()">Log In</button>
+        </div>
+    </div>
+
+    <!-- Dashboard Screen -->
+    <div class="screen" id="dashboard-screen">
+        <div class="container">
+            <div class="dashboard-header">
+                <h1>AI Persona Dashboard</h1>
+                <button class="btn btn-secondary" onclick="handleLogout()">Logout</button>
+            </div>
+
+            <!-- Generator Section -->
+            <div class="section">
+                <div class="section-header">
+                    <h2>Create New Personas</h2>
+                </div>
+                <div class="form-group">
+                    <label for="goal-prompt">Describe your bot's high-level goal to generate a new team of AI assistants:</label>
+                    <textarea id="goal-prompt" placeholder="e.g., I'm launching a new direct-to-consumer brand of premium, single-origin coffee beans called 'Aether Grind'. I need a bot team for our new Discord community..."></textarea>
+                </div>
+                <button id="generate-btn" class="btn btn-primary" onclick="handleGenerate()">
+                    <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" fill="currentColor" viewBox="0 0 16 16">
+                        <path d="M9.302 1.256a1.5 1.5 0 0 0-2.604 0l-1.704 2.952a.5.5 0 0 0 .434.748H6.5v1a.5.5 0 0 0 .5.5h2a.5.5 0 0 0 .5-.5v-1h1.97a.5.5 0 0 0 .434-.748zM4.994 11.691a2.5 2.5 0 0 0 5.012 0l1.767-3.06a.5.5 0 0 0-.433-.748H10.5v-1a.5.5 0 0 0-.5-.5h-2a.5.5 0 0 0-.5.5v1H6.03a.5.5 0 0 0-.433.748z"/>
+                    </svg>
+                    Generate AI Team
+                </button>
+            </div>
+            
+            <!-- Active Team Section -->
+            <div class="section">
+                <div class="section-header">
+                    <h2>Your Active Bot Team</h2>
+                    <div class="actions">
+                        <button class="btn btn-secondary" onclick="loadPersonaLibrary()">
+                            <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" fill="currentColor" viewBox="0 0 16 16">
+                                <path d="M8 1.783C7.015.936 5.587.81 4.287.94c-1.514.153-3.042.672-3.994 1.105A.5.5 0 0 0 0 2.5v11a.5.5 0 0 0 .707.455c.882-.4 2.303-.881 3.68-1.02a4 4 0 0 1 3.23.006c1.378.139 2.798.62 3.68 1.02a.5.5 0 0 0 .707-.455v-11a.5.5 0 0 0-.293-.455c-.952-.433-2.48-.952-3.994-1.105C10.413.809 8.985.936 8 1.783"/>
+                            </svg>
+                            View Library
+                        </button>
+                        <button class="btn btn-danger" onclick="handleClearTeam()">Clear Team</button>
+                        <button id="deploy-btn" class="btn btn-accent" onclick="handleDeploy()" disabled>
+                            <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" fill="currentColor" viewBox="0 0 16 16">
+                                <path d="M15.854.146a.5.5 0 0 1 .11.54l-5.819 14.547a.75.75 0 0 1-1.329.124l-3.178-4.995L.643 7.184a.75.75 0 0 1 .124-1.33L15.314.037a.5.5 0 0 1 .54.11ZM6.636 10.07l2.761 4.338L14.13 2.576zm6.787-8.201L1.591 6.602l4.339 2.76z"/>
+                            </svg>
+                            Deploy Team
+                        </button>
+                    </div>
+                </div>
+                <div id="persona-grid-container">
+                    <div class="empty-state" id="no-personas-message">
+                        <div class="empty-state-icon">🤖</div>
+                        <p>Your active team is empty.</p>
+                        <span>Generate a new team to get started.</span>
+                    </div>
+                    <div id="persona-grid"></div>
+                </div>
+            </div>
+
+            <!-- Library Section -->
+            <div class="section" id="library-section" style="display: none;">
+                <div class="section-header">
+                    <h2>Persona Library</h2>
+                    <button class="btn btn-secondary" onclick="hideLibrary()">Hide Library</button>
+                </div>
+                <div id="library-grid-container">
+                    <div class="empty-state" id="no-library-message">
+                        <div class="empty-state-icon">📚</div>
+                        <p>Your library is empty.</p>
+                        <span>Generated personas will be automatically saved here.</span>
+                    </div>
+                    <div id="library-grid"></div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Notification -->
+    <div id="notification"></div>
+
+    <script>
+        // Configuration
+        const API_BASE_URL = 'http://localhost:8000';
+        
+        // State
+        let activeTeam = [];
+        let personaLibrary = [];
+        let authToken = null;
+
+        // Utility Functions
+        function showScreen(screenId) {
+            document.querySelectorAll('.screen').forEach(s => s.classList.remove('active'));
+            document.getElementById(screenId).classList.add('active');
+        }
+
+        function showNotification(message, type = 'success') {
+            const notification = document.getElementById('notification');
+            notification.textContent = message;
+            notification.className = '';
+            notification.classList.add(type, 'show');
+            setTimeout(() => notification.classList.remove('show'), 4000);
+        }
+
+        function setLoading(elementId, isLoading) {
+            const element = document.getElementById(elementId);
+            if (isLoading) {
+                element.disabled = true;
+                element.innerHTML = '<span class="spinner"></span> Loading...';
+            }
+        }
+
+        // API Functions
+        async function apiCall(endpoint, options = {}) {
+            const url = `${API_BASE_URL}${endpoint}`;
+            const config = {
+                headers: {
+                    'Content-Type': 'application/json',
+                    ...(authToken && { 'Authorization': `Bearer ${authToken}` })
+                },
+                ...options
+            };
+
+            try {
+                const response = await fetch(url, config);
+                const data = await response.json();
+                
+                if (!response.ok) {
+                    throw new Error(data.detail || `HTTP ${response.status}`);
+                }
+                
+                return data;
+            } catch (error) {
+                console.error(`API call failed: ${endpoint}`, error);
+                throw error;
+            }
+        }
+
+        // Authentication
+        async function handleLogin() {
+            const email = document.getElementById('login-email').value;
+            const password = document.getElementById('login-password').value;
+
+            if (!email || !password) {
+                showNotification("Please enter both email and password.", 'error');
+                return;
+            }
+
+            try {
+                const formData = new FormData();
+                formData.append('username', email);
+                formData.append('password', password);
+                
+                const response = await fetch(`${API_BASE_URL}/login`, {
+                    method: 'POST',
+                    body: formData
+                });
+                
+                if (response.ok) {
+                    const data = await response.json();
+                    authToken = data.access_token;
+                    localStorage.setItem('access_token', authToken);
+                    showScreen('dashboard-screen');
+                    initializeApp();
+                    showNotification("Login successful!", 'success');
+                } else {
+                    const error = await response.json();
+                    showNotification(error.detail || "Login failed", 'error');
+                }
+            } catch (error) {
+                console.error("Login error:", error);
+                showNotification("Connection error. Make sure the backend is running on port 8000.", 'error');
+            }
+        }
+
+        function handleLogout() {
+            if (confirm("Are you sure you want to logout?")) {
+                authToken = null;
+                localStorage.removeItem('access_token');
+                activeTeam = [];
+                personaLibrary = [];
+                showScreen('login-screen');
+                showNotification("Logged out successfully.", 'info');
+            }
+        }
+
+        // Persona Generation
+        async function handleGenerate() {
+            const goal = document.getElementById('goal-prompt').value.trim();
+            
+            if (!goal) {
+                showNotification("Please describe your bot's goal first.", 'error');
+                return;
+            }
+
+            const btn = document.getElementById('generate-btn');
+            const originalHTML = btn.innerHTML;
+            
+            try {
+                btn.disabled = true;
+                btn.innerHTML = '<span class="spinner"></span> Generating AI Team...';
+                
+                showNotification("Starting persona generation... this may take 30-60 seconds.", 'info');
+                
+                const result = await apiCall('/generate-personas', {
+                    method: 'POST',
+                    body: JSON.stringify({ goal })
+                });
+
+                if (result.status === 'success') {
+                    // Extract personas from the result
+                    activeTeam = result.personas.map((persona, index) => ({
+                        ...persona,
+                        id: `active_${Date.now()}_${index}`
+                    }));
+                    
+                    renderActiveTeam();
+                    showNotification(`Successfully generated ${activeTeam.length} personas!`, 'success');
+                    
+                    // Clear the input
+                    document.getElementById('goal-prompt').value = '';
+                } else {
+                    throw new Error(result.reason || 'Generation failed');
+                }
+                
+            } catch (error) {
+                console.error("Generation error:", error);
+                showNotification(`Generation failed: ${error.message}`, 'error');
+            } finally {
+                btn.disabled = false;
+                btn.innerHTML = originalHTML;
+            }
+        }
+
+        // Team Management
+        function handleClearTeam() {
+            if (activeTeam.length === 0) {
+                showNotification("Active team is already empty.", 'info');
+                return;
+            }
+
+            if (confirm("Are you sure you want to clear your active team?")) {
+                activeTeam = [];
+                renderActiveTeam();
+                showNotification("Active team cleared.", 'success');
+            }
+        }
+
+        function handleDeploy() {
+            if (activeTeam.length === 0) {
+                showNotification("You have no active personas to deploy!", 'error');
+                return;
+            }
+
+            if (confirm(`Deploy ${activeTeam.length} personas to your live bot?`)) {
+                // TODO: Implement actual deployment
+                showNotification("Deployment successful! (Demo mode)", 'success');
+            }
+        }
+
+        // Library Management
+        async function loadPersonaLibrary() {
+            try {
+                const result = await apiCall('/personas/library');
+                personaLibrary = result.personas || [];
+                renderPersonaLibrary();
+                document.getElementById('library-section').style.display = 'block';
+                showNotification(`Loaded ${personaLibrary.length} personas from library.`, 'info');
+            } catch (error) {
+                console.error("Library load error:", error);
+                showNotification(`Failed to load library: ${error.message}`, 'error');
+            }
+        }
+
+        function hideLibrary() {
+            document.getElementById('library-section').style.display = 'none';
+        }
+
+        // Rendering Functions
+        function renderActiveTeam() {
+            const grid = document.getElementById('persona-grid');
+            const message = document.getElementById('no-personas-message');
+            
+            grid.innerHTML = '';
+            document.getElementById('deploy-btn').disabled = activeTeam.length === 0;
+
+            if (activeTeam.length === 0) {
+                message.style.display = 'block';
+                grid.style.display = 'none';
+                return;
+            }
+
+            message.style.display = 'none';
+            grid.style.display = 'grid';
+
+            activeTeam.forEach((persona) => {
+                const card = document.createElement('div');
+                card.className = 'persona-card';
+                card.innerHTML = `
+                    <h3>${persona.persona_name}</h3>
+                    <p class="role">${persona.role}</p>
+                    <p class="tagline">"${persona.tagline}"</p>
+                    <div class="tags">
+                        ${persona.key_traits.slice(0, 3).map(trait => 
+                            `<span class="tag">${trait}</span>`
+                        ).join('')}
+                    </div>
+                    <div class="card-actions">
+                        <button class="btn btn-secondary" onclick="viewPersonaDetails('${persona.id}')">
+                            👁️ View Details
+                        </button>
+                        <button class="btn btn-danger" onclick="removeFromTeam('${persona.id}')">
+                            🗑️ Remove
+                        </button>
+                    </div>
+                `;
+                grid.appendChild(card);
+            });
+        }
+
+        function renderPersonaLibrary() {
+            const grid = document.getElementById('library-grid');
+            const message = document.getElementById('no-library-message');
+            
+            grid.innerHTML = '';
+
+            if (personaLibrary.length === 0) {
+                message.style.display = 'block';
+                grid.style.display = 'none';
+                return;
+            }
+
+            message.style.display = 'none';
+            grid.style.display = 'grid';
+
+            personaLibrary.forEach((persona) => {
+                const card = document.createElement('div');
+                card.className = 'persona-card';
+                card.innerHTML = `
+                    <h3>${persona.persona_name}</h3>
+                    <p class="role">${persona.role}</p>
+                    <div class="tags">
+                        ${persona.key_traits.slice(0, 3).map(trait => 
+                            `<span class="tag">${trait}</span>`
+                        ).join('')}
+                    </div>
+                    <div class="card-actions">
+                        <button class="btn btn-accent" onclick="addToTeam('${persona.id}')">
+                            + Add to Team
+                        </button>
+                        <button class="btn btn-secondary" onclick="viewPersonaDetails('${persona.id}', true)">
+                            👁️ View
+                        </button>
+                    </div>
+                `;
+                grid.appendChild(card);
+            });
+        }
+
+        // Persona Actions
+        function removeFromTeam(personaId) {
+            const persona = activeTeam.find(p => p.id === personaId);
+            if (!persona) return;
+
+            if (confirm(`Remove ${persona.persona_name} from your active team?`)) {
+                activeTeam = activeTeam.filter(p => p.id !== personaId);
+                renderActiveTeam();
+                showNotification(`${persona.persona_name} removed from team.`, 'success');
+            }
+        }
+
+        function addToTeam(personaId) {
+            const persona = personaLibrary.find(p => p.id === personaId);
+            if (!persona) return;
+
+            if (activeTeam.some(p => p.persona_name === persona.persona_name)) {
+                showNotification(`${persona.persona_name} is already in your team.`, 'error');
+                return;
+            }
+
+            const newTeamMember = {
+                ...persona,
+                id: `active_${Date.now()}`
+            };
+            
+            activeTeam.push(newTeamMember);
+            renderActiveTeam();
+            showNotification(`${persona.persona_name} added to team.`, 'success');
+        }
+
+        function viewPersonaDetails(personaId, isFromLibrary = false) {
+            const persona = isFromLibrary 
+                ? personaLibrary.find(p => p.id === personaId)
+                : activeTeam.find(p => p.id === personaId);
+            
+            if (!persona) return;
+
+            // Create a simple modal to show persona details
+            const details = `
+                <strong>Name:</strong> ${persona.persona_name}<br>
+                <strong>Role:</strong> ${persona.role}<br>
+                <strong>Tagline:</strong> ${persona.tagline}<br>
+                <strong>Expertise:</strong> ${persona.expertise.join(', ')}<br>
+                <strong>Key Traits:</strong> ${persona.key_traits.join(', ')}<br>
+                <strong>Voice Tone:</strong> ${persona.signature_voice.tone}<br>
+                <strong>Communication Style:</strong> ${persona.signature_voice.style}<br>
+                <strong>Uses Emojis:</strong> ${persona.allow_emojis ? 'Yes' : 'No'}<br>
+                <strong>Example Interaction:</strong><br>
+                User: "${persona.examples[0]?.user || 'N/A'}"<br>
+                Assistant: "${persona.examples[0]?.assistant || 'N/A'}"
+            `;
+            
+            alert(details); // Simple alert for now - could be enhanced with a proper modal
+        }
+
+        // Initialization
+        function initializeApp() {
+            // Check for stored auth token
+            const storedToken = localStorage.getItem('access_token');
+            if (storedToken) {
+                authToken = storedToken;
+            }
+            
+            renderActiveTeam();
+        }
+
+        // Auto-login if token exists
+        window.addEventListener('load', () => {
+            const storedToken = localStorage.getItem('access_token');
+            if (storedToken) {
+                authToken = storedToken;
+                showScreen('dashboard-screen');
+                initializeApp();
+            }
+        });
+    </script>
+</body>
+</html>
