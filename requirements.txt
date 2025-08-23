@@ -31,3 +31,20 @@ asyncio-helpers>=0.2.0
 
 # Additional utilities
 requests>=2.31.0 
+# For data validation and structuring
+pydantic>=2.0
+
+# For interacting with the OpenAI API
+openai>=1.0
+
+# For interacting with Grok API
+grok>=0.1.0
+
+rich>=13.0
+# --- NEW: Requirements for the Dashboard Backend ---
+fastapi>=0.110.0
+uvicorn[standard]>=0.29.0
+pydantic>=2.0
+python-jose[cryptography]>=3.3.0  # For JWT
+passlib[bcrypt]>=1.7.4             # For password hashing
+python-multipart>=0.0.9 
