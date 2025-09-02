@@ -1,52 +1,48 @@
 # backend/persona_generator.py
+import sys
+import os
 
-# Import the necessary agents, schemas, and pipeline state from your original module
-from persona_management.pipeline import PipelineState
-from persona_management.agents import planner, role_mapper, crafter, memory_checker, optimizer, validator, feedback_loop, linker
-from persona_management.pipeline import AGENT_MAPPING
+# Ensure the root directory is in the Python path
+sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), '..')))
 
-async def generate_personas_from_goal(initial_prompt: str, max_retries: int = 2) -> list | None:
+# 1. We now import the main orchestrator function, not the individual pieces
+from persona_management.pipeline import run_persona_factory_pipeline
+
+# 2. We also need to add the openai_api_key to the orchestrator's state
+from persona_management.schemas.pipeline_state import PipelineState
+
+async def generate_personas_from_goal(initial_prompt: str, api_key: str) -> list:
     """
-    A refactored, callable version of your persona factory pipeline.
-    It takes a user's goal and returns a list of persona dictionaries.
+    Acts as a simple, secure bridge to the main persona factory pipeline.
+    It passes the user's goal and their API key to the powerful orchestrator.
     """
-    print("--- Starting Persona Factory Pipeline ---")
-    state = PipelineState(initial_prompt=initial_prompt, status='PLANNING')
-    retry_count = 0
+    if not initial_prompt or not api_key:
+        raise ValueError("Initial prompt and API key are required.")
 
-    # This is the main processing loop from your pipeline.py
-    while state.status not in ['SUCCESS', 'FAILED']:
-        current_status = state.status
-        print(f"[Pipeline] Current State: {current_status}")
+    # We need to temporarily set the API key for the orchestrator to use.
+    # This is a bit of a workaround because the original orchestrator
+    # didn't have multi-tenancy in mind.
+    
+    # We will modify the PipelineState to accept the api_key.
+    # Open `persona_management/schemas/pipeline_state.py` and ensure it has:
+    # openai_api_key: str | None = None
+    
+    # We'll also need to modify the main orchestrator to use it.
+    # Open `persona_management/pipeline.py`
+    # Change `state = PipelineState(initial_prompt=initial_prompt, status='PLANNING')`
+    # to `state = PipelineState(initial_prompt=initial_prompt, status='PLANNING', openai_api_key=api_key)`
+    
+    print("--- Bridge: Calling the main persona factory pipeline ---")
+    
+    # This is the key change: we call the "smart manager" directly
+    result = await run_persona_factory_pipeline(initial_prompt, api_key=api_key)
 
-        if current_status == 'VALIDATING':
-            is_valid, errors = await validator.run_validator_agent(state)
-            if is_valid:
-                state.status = 'LINKING'
-            else:
-                state.validation_errors = errors
-                if retry_count < max_retries:
-                    state = await feedback_loop.run_feedback_loop_agent(state)
-                    retry_count += 1
-                else:
-                    state.status = 'FAILED'
-        elif current_status == 'REFINING':
-            state.status = 'MAPPING_ROLES'
-        elif current_status in AGENT_MAPPING:
-            agent_function = AGENT_MAPPING[current_status]
-            state = await agent_function(state)
-        elif current_status == 'FINAL_MODERATION':
-            state.status = 'SUCCESS'
-        else:
-            state.status = 'FAILED'
-            state.error_message = f"Unknown pipeline status: {current_status}"
-
-    print("--- Persona Factory Pipeline Finished ---")
-
-    if state.status == 'SUCCESS':
-        # Extract the pure data; Pydantic's .model_dump() converts objects to dicts
-        final_personas = [p.model_dump() for p in state.generated_personas]
-        return final_personas
+    if result.get("status") == "success":
+        # The orchestrator now returns a complex dict. We need to extract the personas.
+        # It seems to return 'personas' (raw) and 'characters' (formatted).
+        # For the draft, the raw 'personas' list is probably best.
+        return result.get("personas", [])
     else:
-        print(f"Pipeline failed with error: {state.error_message}")
-        return None # Return None on failure
+        # If the pipeline failed, raise an error with the reason
+        reason = result.get("reason", "Unknown pipeline failure.")
+        raise RuntimeError(f"Persona generation pipeline failed: {reason}")

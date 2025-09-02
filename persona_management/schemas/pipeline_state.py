@@ -15,12 +15,16 @@ class PipelineState(BaseModel):
     This object is passed from one agent to the next.
     """
     initial_prompt: str
+    openai_api_key: str | None = None # Important for multi-tenancy
+
     status: Literal[
         'PLANNING', 'MAPPING_ROLES', 'CRAFTING', 'CHECKING_MEMORY', 
         'OPTIMIZING', 'VALIDATING', 'REFINING', 'LINKING', 
         'FINAL_MODERATION', 'SUCCESS', 'FAILED'
     ] = 'PLANNING'
     
+    history: List[str] = Field(default_factory=list)
+
     # Data fields that get populated by agents
     planned_tasks: List[str] = Field(default_factory=list)
     persona_blueprints: List[PersonaBlueprint] = Field(default_factory=list)

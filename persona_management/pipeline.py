@@ -25,7 +25,7 @@ AGENT_MAPPING = {
     # Note: Validator and FeedbackLoop are handled specially inside the loop.
 }
 
-async def run_persona_factory_pipeline(initial_prompt: str, max_retries: int = 2) -> dict:
+async def run_persona_factory_pipeline(initial_prompt: str, api_key: str, max_retries: int = 2) -> dict:
     """
     Orchestrates the running of the persona generation pipeline.
 
@@ -40,7 +40,7 @@ async def run_persona_factory_pipeline(initial_prompt: str, max_retries: int = 2
         A dictionary containing the final list of generated personas on success,
         or an error message on failure.
     """
-    state = PipelineState(initial_prompt=initial_prompt, status='PLANNING')
+    state = PipelineState(initial_prompt=initial_prompt, status='PLANNING', openai_api_key=api_key)
     retry_count = 0
 
     print("--- Starting Persona Factory Pipeline ---")
