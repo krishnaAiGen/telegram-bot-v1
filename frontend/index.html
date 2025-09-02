@@ -1,0 +1,1024 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>AI Persona Dashboard</title>
+    <style>
+        :root {
+            --primary-color: #4F46E5;
+            /* Indigo */
+            --primary-hover: #4338CA;
+            --accent-color: #EC4899;
+            /* Pink */
+            --accent-hover: #DB2777;
+            --danger-color: #EF4444;
+            --success-color: #10B981;
+            --bg-color: #F8FAFC;
+            /* Slate 50 */
+            --card-bg: #FFFFFF;
+            --border-color: #E2E8F0;
+            /* Slate 200 */
+            --text-dark: #1E293B;
+            /* Slate 800 */
+            --text-medium: #64748B;
+            /* Slate 500 */
+            --text-light: #94A3B8;
+            /* Slate 400 */
+        }
+
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: 'Inter', -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+            background-color: var(--bg-color);
+            color: var(--text-dark);
+            line-height: 1.6;
+        }
+
+        #auth-message.error {
+            color: var(--danger-color);
+        }
+
+        #auth-message.success {
+            color: var(--success-color);
+        }
+
+        .container {
+            max-width: 1200px;
+            margin: 40px auto;
+            padding: 0 20px;
+        }
+
+        .screen {
+            display: none;
+        }
+
+        .screen.active {
+            display: block;
+        }
+
+        /* --- Components --- */
+        .btn {
+            display: inline-flex;
+            align-items: center;
+            gap: 8px;
+            padding: 10px 20px;
+            border: none;
+            border-radius: 8px;
+            font-weight: 600;
+            font-size: 15px;
+            cursor: pointer;
+            transition: all 0.2s ease;
+            white-space: nowrap;
+        }
+
+        .btn:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
+        }
+
+        .btn:disabled {
+            background-color: var(--text-light);
+            cursor: not-allowed;
+            transform: none;
+            box-shadow: none;
+        }
+
+        .btn-primary {
+            background-color: var(--primary-color);
+            color: white;
+        }
+
+        .btn-primary:hover:not(:disabled) {
+            background-color: var(--primary-hover);
+        }
+
+        .btn-accent {
+            background-color: var(--accent-color);
+            color: white;
+        }
+
+        .btn-accent:hover:not(:disabled) {
+            background-color: var(--accent-hover);
+        }
+
+        .btn-danger {
+            background-color: var(--danger-color);
+            color: white;
+        }
+
+        .btn-secondary {
+            background: white;
+            color: var(--text-dark);
+            border: 1px solid var(--border-color);
+        }
+
+        .btn-secondary:hover {
+            background-color: #f8fafc;
+        }
+
+        /* --- Forms --- */
+        .form-group {
+            margin-bottom: 20px;
+        }
+
+        label {
+            display: block;
+            margin-bottom: 8px;
+            font-weight: 500;
+            color: var(--text-dark);
+        }
+
+        input[type="text"],
+        input[type="email"],
+        input[type="password"],
+        textarea {
+            width: 100%;
+            padding: 12px;
+            border: 1px solid var(--border-color);
+            border-radius: 8px;
+            font-size: 16px;
+            background-color: white;
+            transition: all 0.2s ease;
+        }
+
+        input:focus,
+        textarea:focus {
+            border-color: var(--primary-color);
+            box-shadow: 0 0 0 3px rgba(79, 70, 229, 0.1);
+            outline: none;
+        }
+
+        textarea {
+            resize: vertical;
+            min-height: 120px;
+        }
+
+        input[type="checkbox"] {
+            width: auto;
+            margin-right: 10px;
+        }
+
+        /* --- Auth Screen --- */
+        .auth-container {
+            max-width: 420px;
+            margin: 100px auto;
+            background: var(--card-bg);
+            padding: 40px;
+            border-radius: 12px;
+            box-shadow: 0 10px 30px rgba(0, 0, 0, 0.08);
+            text-align: center;
+        }
+
+        .auth-container h1 {
+            font-size: 28px;
+            margin-bottom: 30px;
+        }
+
+        /* --- Dashboard --- */
+        .dashboard-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            padding-bottom: 20px;
+            border-bottom: 1px solid var(--border-color);
+            margin-bottom: 30px;
+        }
+
+        .dashboard-header h1 {
+            font-size: 28px;
+        }
+
+        .section {
+            background: var(--card-bg);
+            padding: 30px;
+            border-radius: 12px;
+            box-shadow: 0 4px 12px rgba(0, 0, 0, 0.05);
+            margin-bottom: 30px;
+        }
+
+        .section-header {
+            display: flex;
+            flex-wrap: wrap;
+            justify-content: space-between;
+            align-items: center;
+            gap: 15px;
+            margin-bottom: 20px;
+            padding-bottom: 15px;
+            border-bottom: 1px solid var(--border-color);
+        }
+
+        .section-header h2 {
+            font-size: 22px;
+            margin: 0;
+        }
+
+        .section-header .actions {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 10px;
+        }
+
+        #persona-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fill, minmax(350px, 1fr));
+            gap: 20px;
+        }
+
+        .persona-card {
+            border: 1px solid var(--border-color);
+            border-radius: 12px;
+            padding: 20px;
+            background: white;
+            transition: all 0.2s ease;
+            display: flex;
+            flex-direction: column;
+        }
+
+        .persona-card:hover {
+            border-color: var(--primary-color);
+            transform: translateY(-2px);
+            box-shadow: 0 8px 20px rgba(0, 0, 0, 0.07);
+        }
+
+        .persona-card h3 {
+            font-size: 18px;
+            color: var(--primary-color);
+            margin-bottom: 4px;
+        }
+
+        .persona-card .role {
+            font-weight: 600;
+            color: var(--text-medium);
+            margin-bottom: 10px;
+        }
+
+        .persona-card .tagline {
+            font-style: italic;
+            color: var(--text-light);
+            margin-bottom: 15px;
+            font-size: 14px;
+            flex-grow: 1;
+        }
+
+        .tags {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 8px;
+            font-size: 12px;
+            margin-top: 10px;
+        }
+
+        .tag {
+            background: var(--bg-color);
+            color: var(--text-medium);
+            padding: 4px 10px;
+            border-radius: 16px;
+            font-weight: 500;
+        }
+
+        .card-actions {
+            margin-top: 20px;
+            display: flex;
+            gap: 10px;
+            justify-content: flex-end;
+        }
+
+        /* --- Modal --- */
+        .modal-overlay {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: rgba(0, 0, 0, 0.5);
+            display: none;
+            justify-content: center;
+            align-items: center;
+            z-index: 1000;
+            backdrop-filter: blur(4px);
+        }
+
+        .modal {
+            background: var(--bg-color);
+            border-radius: 12px;
+            width: 90%;
+            max-width: 800px;
+            max-height: 90vh;
+            display: flex;
+            flex-direction: column;
+            box-shadow: 0 20px 40px rgba(0, 0, 0, 0.2);
+        }
+
+        .modal-header {
+            padding: 20px;
+            border-bottom: 1px solid var(--border-color);
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            background: white;
+            border-radius: 12px 12px 0 0;
+        }
+
+        .modal-header h2 {
+            margin-bottom: 0;
+            font-size: 20px;
+        }
+
+        .modal-close {
+            font-size: 24px;
+            cursor: pointer;
+            border: none;
+            background: none;
+            color: var(--text-medium);
+        }
+
+        .modal-body {
+            padding: 20px;
+            overflow-y: auto;
+        }
+
+        .modal-tabs {
+            display: flex;
+            border-bottom: 1px solid var(--border-color);
+            margin-bottom: 20px;
+        }
+
+        .tab-button {
+            padding: 10px 20px;
+            cursor: pointer;
+            border: none;
+            background: none;
+            font-size: 16px;
+            border-bottom: 3px solid transparent;
+            color: var(--text-medium);
+            font-weight: 500;
+        }
+
+        .tab-button.active {
+            border-bottom-color: var(--primary-color);
+            font-weight: 600;
+            color: var(--primary-color);
+        }
+
+        .tab-content {
+            display: none;
+        }
+
+        .tab-content.active {
+            display: block;
+        }
+
+        .example-field {
+            border: 1px dashed var(--border-color);
+            border-radius: 8px;
+            padding: 15px;
+            margin-bottom: 15px;
+            position: relative;
+        }
+
+        .delete-example-btn {
+            position: absolute;
+            top: 10px;
+            right: 10px;
+            background: none;
+            border: none;
+            color: var(--danger-color);
+            cursor: pointer;
+            font-size: 18px;
+        }
+
+        .modal-footer {
+            padding: 20px;
+            border-top: 1px solid var(--border-color);
+            text-align: right;
+            background: white;
+            border-radius: 0 0 12px 12px;
+            display: flex;
+            justify-content: flex-end;
+            gap: 10px;
+        }
+        /* --- ADD THIS CSS FOR THE LOADER --- */
+        #loading-overlay {
+            position: fixed; /* Sit on top of the page content */
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background-color: rgba(0, 0, 0, 0.6); /* Semi-transparent black */
+            backdrop-filter: blur(4px); /* A nice blur effect */
+            display: flex;
+            flex-direction: column;
+            justify-content: center;
+            align-items: center;
+            z-index: 9999; /* Make sure it's on top of everything */
+        }
+
+        #loading-overlay p {
+            color: white;
+            margin-top: 20px;
+            font-size: 18px;
+            font-weight: 500;
+        }
+
+        .spinner {
+            width: 50px;
+            height: 50px;
+            border: 5px solid rgba(255, 255, 255, 0.3); /* Light track */
+            border-top-color: var(--primary-color); /* Your theme's primary color */
+            border-radius: 50%;
+            animation: spin 1s linear infinite;
+        }
+
+        @keyframes spin {
+            to {
+                transform: rotate(360deg);
+            }
+        }
+
+        /* --- Notification --- */
+        #notification {
+            position: fixed;
+            bottom: 20px;
+            left: 50%;
+            transform: translateX(-50%);
+            padding: 12px 25px;
+            border-radius: 8px;
+            color: white;
+            box-shadow: 0 5px 15px rgba(0, 0, 0, 0.2);
+            opacity: 0;
+            visibility: hidden;
+            transition: all 0.4s ease;
+            z-index: 2000;
+        }
+
+        #notification.show {
+            opacity: 1;
+            visibility: visible;
+            bottom: 30px;
+        }
+
+        #notification.success {
+            background-color: var(--success-color);
+        }
+
+        #notification.error {
+            background-color: var(--danger-color);
+        }
+
+        #notification.info {
+            background-color: var(--text-medium);
+        }
+
+        /* --- Empty State --- */
+        .empty-state {
+            text-align: center;
+            padding: 40px;
+            color: var(--text-medium);
+        }
+
+        .empty-state-icon {
+            font-size: 48px;
+            margin-bottom: 15px;
+        }
+    </style>
+</head>
+
+<body>
+
+    <!-- This overlay is for the spinning loader during generation -->
+    <div id="loading-overlay" style="display: none;">
+        <div class="spinner"></div>
+        <p>Generating your AI team... this may take a moment.</p>
+    </div>
+
+    <!-- This is a general container for the whole app -->
+    <div id="app-container">
+
+        <!-- Screen 1: The Login Form (Shown by default) -->
+        <div class="screen active" id="login-screen">
+            <div class="auth-container">
+                <h1>AI Persona Dashboard</h1>
+                <p id="auth-message" style="min-height: 20px; font-weight: 500; margin-bottom: 1rem;"></p>
+                <div class="form-group">
+                    <label for="email" style="text-align: left;">Email</label>
+                    <input type="email" id="email" placeholder="user@example.com" required>
+                </div>
+                <div class="form-group">
+                    <label for="password" style="text-align: left;">Password</label>
+                    <input type="password" id="password" placeholder="••••••••" required>
+                </div>
+                <div style="display: flex; gap: 1rem; margin-top: 1.5rem;">
+                    <button id="login-btn" class="btn btn-primary" style="flex-grow: 1;">Login</button>
+                    <button id="register-btn" class="btn btn-secondary" style="flex-grow: 1;">Register</button>
+                </div>
+            </div>
+        </div>
+
+        <!-- Screen 2: The Main Dashboard (Hidden by default) -->
+        <div class="screen" id="dashboard-screen">
+            <div class="container">
+                <header class="dashboard-header">
+                    <h1>AI Persona Dashboard</h1>
+                    <div style="display: flex; align-items: center; gap: 20px;">
+                        <span id="user-info"></span>
+                        <button id="logout-btn" class="btn btn-secondary">Logout</button>
+                    </div>
+                </header>
+
+                <div class="section">
+                    <div class="section-header">
+                        <h2>Create New Personas</h2>
+                    </div>
+                    <div class="form-group">
+                        <label for="goal-prompt">Describe your bot's high-level goal:</label>
+                        <textarea id="goal-prompt"
+                            placeholder="e.g., A friendly and professional team for a new SaaS product's Discord..."></textarea>
+                    </div>
+                    <button id="generate-btn" class="btn btn-primary">
+                        <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" fill="currentColor" viewBox="0 0 16 16">
+                            <path
+                                d="M9.302 1.256a1.5 1.5 0 0 0-2.604 0l-1.704 2.952a.5.5 0 0 0 .434.748H6.5v1a.5.5 0 0 0 .5.5h2a.5.5 0 0 0 .5-.5v-1h1.97a.5.5 0 0 0 .434-.748zM4.994 11.691a2.5 2.5 0 0 0 5.012 0l1.767-3.06a.5.5 0 0 0-.433-.748H10.5v-1a.5.5 0 0 0-.5-.5h-2a.5.5 0 0 0-.5.5v1H6.03a.5.5 0 0 0-.433.748z" />
+                        </svg>
+                        Generate AI Team
+                    </button>
+                </div>
+
+                <div class="section">
+                    <div class="section-header">
+                        <h2>Your Active Bot Team (Draft)</h2>
+                    </div>
+                    <div id="persona-grid-container">
+                        <div class="empty-state" id="no-personas-message" style="display: none;">
+                            <div class="empty-state-icon">🤖</div>
+                            <p>Your active team is empty.</p>
+                            <span>Generate a new team to get started.</span>
+                        </div>
+                        <div id="persona-grid"></div>
+                    </div>
+                </div>
+
+            </div>
+        </div>
+    </div>
+
+    <!-- =========== All Modals Go Here =========== -->
+    <div class="modal-overlay" id="api-key-modal">
+        <div class="modal" style="max-width: 500px;">
+            <div class="modal-header">
+                <h2>OpenAI API Key Required</h2>
+            </div>
+            <div class="modal-body">
+                <p>To generate AI personas, this application needs your OpenAI API key. Your key is stored encrypted and only used on your behalf.</p>
+                <div class="form-group">
+                    <label for="openai-api-key">Your OpenAI API Key</label>
+                    <input type="password" id="openai-api-key" placeholder="sk-...">
+                </div>
+                <p id="api-key-message" style="min-height: 20px; font-weight: 500;"></p>
+            </div>
+            <div class="modal-footer" style="justify-content: space-between;">
+                 <a href="https://platform.openai.com/api-keys" target="_blank">Find your key</a>
+                <button id="save-api-key-btn" class="btn btn-primary">Save and Continue</button>
+            </div>
+        </div>
+    </div>
+    
+    <div class="modal-overlay" id="edit-persona-modal">
+        <div class="modal">
+            <div class="modal-header">
+                <h2 id="modal-title">Edit Persona</h2>
+                <button id="modal-close-btn" class="modal-close">&times;</button>
+            </div>
+            <div class="modal-body">
+                <div class="modal-tabs">
+                    <button class="tab-button active" data-tab="core">Core Identity</button>
+                    <button class="tab-button" data-tab="voice">Voice & Style</button>
+                    <button class="tab-button" data-tab="knowledge">Knowledge & Rules</button>
+                </div>
+                <div class="tab-content active" id="tab-core">
+                    <div class="form-group"><label for="edit-persona_name">Persona Name</label><input type="text" id="edit-persona_name"></div>
+                    <div class="form-group"><label for="edit-role">Role</label><input type="text" id="edit-role"></div>
+                    <div class="form-group"><label for="edit-tagline">Tagline</label><input type="text" id="edit-tagline"></div>
+                    <div class="form-group"><label for="edit-key_traits">Key Traits (comma-separated)</label><input type="text" id="edit-key_traits"></div>
+                    <div class="form-group"><label for="edit-expertise">Expertise (comma-separated)</label><input type="text" id="edit-expertise"></div>
+                </div>
+                <div class="tab-content" id="tab-voice">
+                    <div class="form-group"><label for="edit-tone">Tone</label><input type="text" id="edit-tone"></div>
+                    <div class="form-group"><label for="edit-style">Style</label><textarea id="edit-style"></textarea></div>
+                    <div class="form-group"><label><input type="checkbox" id="edit-allow_emojis"> Allow use of Emojis</label></div>
+                </div>
+                <div class="tab-content" id="tab-knowledge">
+                    <div class="form-group"><label for="edit-interaction_rules">Interaction Rules (one per line)</label><textarea id="edit-interaction_rules"></textarea></div>
+                </div>
+            </div>
+            <div class="modal-footer">
+                <button id="modal-cancel-btn" class="btn btn-secondary">Cancel</button>
+                <button id="modal-save-btn" class="btn btn-primary">Save Changes</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- This is the pop-up notification element -->
+    <div id="notification"></div>
+
+
+    <script>
+        document.addEventListener('DOMContentLoaded', () => {
+            // --- CONFIGURATION ---
+            const API_BASE_URL = 'http://127.0.0.1:8000';
+
+            // --- STATE MANAGEMENT ---
+            let authToken = null;
+            let currentUser = null;
+            let activeTeam = [];
+            let editingPersonaId = null;
+
+            // --- DOM ELEMENTS ---
+            const loginScreen = document.getElementById('login-screen');
+            const dashboardScreen = document.getElementById('dashboard-screen');
+            const loginBtn = document.getElementById('login-btn');
+            const registerBtn = document.getElementById('register-btn');
+            const logoutBtn = document.getElementById('logout-btn');
+            const emailInput = document.getElementById('email');
+            const passwordInput = document.getElementById('password');
+            const authMessage = document.getElementById('auth-message');
+            const userInfo = document.getElementById('user-info');
+            const generateBtn = document.getElementById('generate-btn');
+            const apiKeyModal = document.getElementById('api-key-modal');
+            const saveApiKeyBtn = document.getElementById('save-api-key-btn');
+            const apiKeyInput = document.getElementById('openai-api-key');
+            const apiKeyMessage = document.getElementById('api-key-message');
+            const loadingOverlay = document.getElementById('loading-overlay');
+            const notification = document.getElementById('notification');
+            const editPersonaModal = document.getElementById('edit-persona-modal');
+            const modalCloseBtn = document.getElementById('modal-close-btn');
+            const modalCancelBtn = document.getElementById('modal-cancel-btn');
+            const modalSaveBtn = document.getElementById('modal-save-btn');
+            const modalTabsContainer = document.querySelector('.modal-tabs');
+            
+            // --- API HELPER ---
+            // In your <script> tag
+
+            async function apiRequest(endpoint, method, body = null) {
+                const headers = { 'Content-Type': 'application/json' };
+                if (authToken) {
+                    headers['Authorization'] = `Bearer ${authToken}`;
+                }
+                const config = { method, headers };
+                if (body) {
+                    config.body = JSON.stringify(body);
+                }
+
+                try {
+                    const response = await fetch(`${API_BASE_URL}${endpoint}`, config);
+                    // We get the data regardless of success to parse the error message
+                    const data = await response.json();
+
+                    if (!response.ok) {
+                        // --- THIS IS THE NEW, SMARTER ERROR HANDLING ---
+                        let errorMessage = 'An unknown API error occurred.';
+                        if (data && data.detail) {
+                            // If the detail is a simple string, use it.
+                            if (typeof data.detail === 'string') {
+                                errorMessage = data.detail;
+                            } else {
+                                // If it's a complex object (like a Pydantic validation error),
+                                // convert it to a readable string.
+                                errorMessage = JSON.stringify(data.detail);
+                            }
+                        }
+                        throw new Error(errorMessage);
+                        // -------------------------------------------------
+                    }
+                    return data;
+                } catch (error) {
+                    // This will now catch both network errors and our custom API errors
+                    console.error(`API Error on ${method} ${endpoint}:`, error);
+                    throw error; // Re-throw the error so the calling function can handle it
+                }
+            }
+
+            // --- AUTHENTICATION LOGIC ---
+            async function handleLogin() {
+                clearMessage();
+                const email = emailInput.value.trim();
+                const password = passwordInput.value.trim();
+                if (!email || !password) return showMessage('Email and password are required.', 'error');
+                try {
+                    const data = await apiRequest('/auth/login', 'POST', { email, password });
+                    setAuthState(data.idToken, data.email);
+                    showScreen('dashboard-screen');
+                } catch (error) {
+                    showMessage(`Login Failed: ${error.message}`, 'error');
+                }
+            }
+
+            async function handleRegister() {
+                clearMessage();
+                const email = emailInput.value.trim();
+                const password = passwordInput.value.trim();
+                if (!email || !password) return showMessage('Email and password are required.', 'error');
+                try {
+                    await apiRequest('/auth/register', 'POST', { email, password });
+                    showMessage('Registration successful! Please log in.', 'success');
+                    passwordInput.value = '';
+                } catch (error) {
+                    showMessage(`Registration Failed: ${error.message}`, 'error');
+                }
+            }
+
+            function handleLogout() {
+                localStorage.removeItem('authToken');
+                localStorage.removeItem('currentUserEmail');
+                authToken = null;
+                currentUser = null;
+                showScreen('login-screen');
+            }
+
+            // --- UI & STATE HELPERS ---
+            function setAuthState(token, email) {
+                authToken = token;
+                currentUser = { email };
+                localStorage.setItem('authToken', token);
+                localStorage.setItem('currentUserEmail', email);
+                userInfo.textContent = `Logged in as: ${email}`;
+            }
+
+            function showScreen(screenId) {
+                document.querySelectorAll('.screen').forEach(s => s.classList.remove('active'));
+                const screen = document.getElementById(screenId);
+                screen.classList.add('active');
+                if (screenId === 'dashboard-screen') {
+                    loadUserPersonas();
+                }
+            }
+
+            function showMessage(message, type = 'info') {
+                authMessage.textContent = message;
+                authMessage.className = type;
+            }
+
+            function clearMessage() {
+                authMessage.textContent = '';
+                authMessage.className = '';
+            }
+            
+            function showLoader(shouldShow) {
+                if (loadingOverlay) loadingOverlay.style.display = shouldShow ? 'flex' : 'none';
+            }
+
+            function showApiKeyModal(shouldShow) {
+                apiKeyModal.style.display = shouldShow ? 'flex' : 'none';
+                apiKeyMessage.textContent = '';
+                apiKeyInput.value = '';
+            }
+
+            function showApiKeyMessage(message, type = 'error') {
+                apiKeyMessage.textContent = message;
+                apiKeyMessage.className = type;
+            }
+
+            function showNotification(message, type = 'success') {
+                if (!notification) return;
+                notification.textContent = message;
+                notification.className = '';
+                notification.classList.add(type, 'show');
+                setTimeout(() => {
+                    notification.classList.remove('show');
+                }, 3000);
+            }
+
+            function showEditModal(shouldShow) {
+                if (editPersonaModal) editPersonaModal.style.display = shouldShow ? 'flex' : 'none';
+            }
+
+            function showTab(tabName) {
+                const modal = document.getElementById('edit-persona-modal');
+                if (!modal) return;
+                modal.querySelectorAll('.tab-content').forEach(tc => tc.classList.remove('active'));
+                modal.querySelector(`#tab-${tabName}`).classList.add('active');
+                modal.querySelectorAll('.tab-button').forEach(tb => {
+                    tb.classList.remove('active');
+                    if (tb.dataset.tab === tabName) {
+                        tb.classList.add('active');
+                    }
+                });
+            }
+
+            // --- PERSONA DATA & RENDERING ---
+            function renderActiveTeam() {
+                const grid = document.getElementById('persona-grid');
+                const message = document.getElementById('no-personas-message');
+                grid.innerHTML = '';
+
+                if (!activeTeam || activeTeam.length === 0) {
+                    message.style.display = 'block';
+                    grid.style.display = 'none';
+                    return;
+                }
+
+                message.style.display = 'none';
+                grid.style.display = 'grid';
+
+                activeTeam.forEach((persona) => {
+                    const card = document.createElement('div');
+                    card.className = 'persona-card';
+                    card.innerHTML = `
+                        <h3>${persona.persona_name || 'Unnamed Persona'}</h3>
+                        <p class="role">${persona.role || 'No role defined'}</p>
+                        <p class="tagline">"${persona.tagline || ''}"</p>
+                        <div class="tags">${(persona.key_traits || []).slice(0, 3).map(trait => `<span class="tag">${trait}</span>`).join('')}</div>
+                        <div class="card-actions">
+                            <button class="btn btn-primary btn-sm js-edit-btn">✏️ Edit</button>
+                            <button class="btn btn-danger btn-sm js-delete-btn" style="padding: 10px;">🗑️</button>
+                        </div>
+                    `;
+                    const editBtn = card.querySelector('.js-edit-btn');
+                    const deleteBtn = card.querySelector('.js-delete-btn');
+                    if (editBtn) editBtn.addEventListener('click', () => handleEditClick(persona.id));
+                    if (deleteBtn) deleteBtn.addEventListener('click', () => handleDeleteClick(persona.id));
+                    grid.appendChild(card);
+                });
+            }
+            
+            async function loadUserPersonas() {
+                showNotification("Loading your draft team...", 'info');
+                try {
+                    const personas = await apiRequest('/api/draft', 'GET');
+                    activeTeam = personas;
+                    renderActiveTeam();
+                    showNotification("Draft loaded successfully!", 'success');
+                } catch (error) {
+                    showNotification(`Could not load draft: ${error.message}`, 'error');
+                    activeTeam = [];
+                    renderActiveTeam();
+                }
+            }
+
+            // --- PERSONA GENERATION & EDITING ---
+            async function handleGenerate() {
+                try {
+                    showNotification("Checking credentials...", 'info');
+                    const status = await apiRequest('/api/connections/status', 'GET');
+                    if (!status.has_openai_key) {
+                        showNotification("OpenAI key is required.", 'info');
+                        showApiKeyModal(true);
+                    } else {
+                        showNotification("Credentials found. Starting generation...", 'info');
+                        await proceedToPersonaGeneration();
+                    }
+                } catch (error) {
+                    showNotification(`Error: ${error.message}`, 'error');
+                }
+            }
+
+            async function handleSaveApiKey() {
+                const apiKey = apiKeyInput.value.trim();
+                if (!apiKey) return showApiKeyMessage('Please enter an API key.');
+                saveApiKeyBtn.disabled = true;
+                saveApiKeyBtn.textContent = 'Saving...';
+                try {
+                    await apiRequest('/api/connections/openai', 'POST', { api_key: apiKey });
+                    showApiKeyMessage('Key saved successfully!', 'success');
+                    setTimeout(() => {
+                        showApiKeyModal(false);
+                        proceedToPersonaGeneration();
+                    }, 1000);
+                } catch (error) {
+                    showApiKeyMessage(`Failed to save key: ${error.message}`);
+                } finally {
+                    saveApiKeyBtn.disabled = false;
+                    saveApiKeyBtn.textContent = 'Save and Continue';
+                }
+            }
+
+            async function proceedToPersonaGeneration() {
+                const goal = document.getElementById('goal-prompt').value;
+                if (!goal.trim()) return showNotification("Please describe your goal first.", 'error');
+                
+                showLoader(true);
+                try {
+                    const result = await apiRequest('/api/personas/generate', 'POST', { goal });
+                    showNotification(result.message, 'success');
+                    await loadUserPersonas();
+                } catch (error) {
+                    showNotification(`Error: ${error.message}`, 'error');
+                } finally {
+                    showLoader(false);
+                }
+            }
+            
+            function handleEditClick(personaId) {
+                const persona = activeTeam.find(p => p.id === personaId);
+                if (!persona) return;
+                editingPersonaId = personaId;
+
+                document.getElementById('modal-title').innerText = `Edit: ${persona.persona_name || ''}`;
+                document.getElementById('edit-persona_name').value = persona.persona_name || '';
+                document.getElementById('edit-role').value = persona.role || '';
+                document.getElementById('edit-tagline').value = persona.tagline || '';
+                document.getElementById('edit-key_traits').value = (persona.key_traits || []).join(', ');
+                document.getElementById('edit-expertise').value = (persona.expertise || []).join(', ');
+                
+                const voice = persona.signature_voice || {};
+                document.getElementById('edit-tone').value = voice.tone || '';
+                document.getElementById('edit-style').value = voice.style || '';
+                document.getElementById('edit-allow_emojis').checked = persona.allow_emojis || false;
+                
+                document.getElementById('edit-interaction_rules').value = (persona.interaction_rules || []).join('\n');
+
+                showEditModal(true);
+            }
+
+            async function handleSavePersona() {
+                if (!editingPersonaId) return;
+                const personaIndex = activeTeam.findIndex(p => p.id === editingPersonaId);
+                if (personaIndex === -1) return;
+
+                const updatedPersona = activeTeam[personaIndex];
+                updatedPersona.persona_name = document.getElementById('edit-persona_name').value;
+                updatedPersona.role = document.getElementById('edit-role').value;
+                updatedPersona.tagline = document.getElementById('edit-tagline').value;
+                updatedPersona.key_traits = document.getElementById('edit-key_traits').value.split(',').map(s => s.trim()).filter(Boolean);
+                updatedPersona.expertise = document.getElementById('edit-expertise').value.split(',').map(s => s.trim()).filter(Boolean);
+                
+                updatedPersona.signature_voice = updatedPersona.signature_voice || {};
+                updatedPersona.signature_voice.tone = document.getElementById('edit-tone').value;
+                updatedPersona.signature_voice.style = document.getElementById('edit-style').value;
+                updatedPersona.allow_emojis = document.getElementById('edit-allow_emojis').checked;
+                
+                updatedPersona.interaction_rules = document.getElementById('edit-interaction_rules').value.split('\n').filter(Boolean);
+
+                activeTeam[personaIndex] = updatedPersona;
+                
+                try {
+                    showNotification("Saving changes...", 'info');
+                    await apiRequest('/api/draft', 'PUT', { activeTeam: activeTeam });
+                    showNotification("Draft saved successfully!", 'success');
+                } catch (error) {
+                    showNotification(`Save failed: ${error.message}`, 'error');
+                } finally {
+                    renderActiveTeam();
+                    showEditModal(false);
+                    editingPersonaId = null;
+                }
+            }
+
+            async function handleDeleteClick(personaId) {
+                const personaName = activeTeam.find(p => p.id === personaId)?.persona_name || 'this persona';
+                if (!confirm(`Are you sure you want to delete ${personaName}?`)) return;
+
+                activeTeam = activeTeam.filter(p => p.id !== personaId);
+
+                try {
+                    showNotification("Deleting persona...", 'info');
+                    await apiRequest('/api/draft', 'PUT', { activeTeam: activeTeam });
+                    showNotification("Persona deleted.", 'success');
+                } catch (error) {
+                    showNotification(`Delete failed: ${error.message}`, 'error');
+                } finally {
+                    renderActiveTeam();
+                }
+            }
+
+            // --- INITIALIZATION ---
+            function initializeApp() {
+                const storedToken = localStorage.getItem('authToken');
+                const storedEmail = localStorage.getItem('currentUserEmail');
+
+                if (storedToken && storedEmail) {
+                    setAuthState(storedToken, storedEmail);
+                    showScreen('dashboard-screen');
+                } else {
+                    showScreen('login-screen');
+                }
+
+                // Attach ALL event listeners
+                loginBtn.addEventListener('click', handleLogin);
+                registerBtn.addEventListener('click', handleRegister);
+                logoutBtn.addEventListener('click', handleLogout);
+                generateBtn.addEventListener('click', handleGenerate);
+                saveApiKeyBtn.addEventListener('click', handleSaveApiKey);
+                modalCloseBtn.addEventListener('click', () => showEditModal(false));
+                modalCancelBtn.addEventListener('click', () => showEditModal(false));
+                modalSaveBtn.addEventListener('click', handleSavePersona);
+                modalTabsContainer.addEventListener('click', (event) => {
+                    if (event.target.matches('.tab-button')) {
+                        const tabName = event.target.dataset.tab;
+                        showTab(tabName);
+                    }
+                });
+            }
+
+            initializeApp();
+        });
+    </script>
+</body>
+
+</html>
