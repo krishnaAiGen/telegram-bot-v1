@@ -487,6 +487,70 @@
             font-size: 48px;
             margin-bottom: 15px;
         }
+        .status-indicator {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            padding: 6px 12px;
+            border-radius: 20px;
+            font-weight: 600;
+            font-size: 14px;
+        }
+        .status-indicator.stopped {
+            background-color: #FEF2F2; /* Red-50 */
+            color: #991B1B; /* Red-800 */
+        }
+        .status-indicator.running {
+            background-color: #ECFDF5; /* Green-50 */
+            color: #065F46; /* Green-800 */
+        }
+        .status-dot {
+            width: 10px;
+            height: 10px;
+            border-radius: 50%;
+        }
+        .status-indicator.stopped .status-dot {
+            background-color: #DC2626; /* Red-600 */
+        }
+        .status-indicator.running .status-dot {
+            background-color: #10B981; /* Green-500 */
+        }
+        .connection-item {
+            display: flex;
+            align-items: center;
+            padding: 15px;
+            border: 1px solid var(--border-color);
+            border-radius: 8px;
+            margin-bottom: 10px;
+            gap: 15px;
+        }
+        .connection-item input[type="checkbox"] {
+            width: 20px;
+            height: 20px;
+            accent-color: var(--primary-color);
+        }
+        .connection-item label {
+            font-weight: 600;
+            font-size: 18px;
+            margin-bottom: 0;
+            flex-grow: 1;
+        }
+        .status-badge {
+            font-size: 12px;
+            font-weight: 700;
+            padding: 4px 8px;
+            border-radius: 12px;
+            text-transform: uppercase;
+        }
+        .status-badge.connected {
+            background-color: #ECFDF5; /* Green-50 */
+            color: #065F46; /* Green-800 */
+        }
+        .status-badge.disconnected {
+            background-color: #F1F5F9; /* Slate-100 */
+            color: #475569; /* Slate-600 */
+        }
+        
     </style>
 </head>
 
@@ -526,7 +590,21 @@
             <div class="container">
                 <header class="dashboard-header">
                     <h1>AI Persona Dashboard</h1>
+                    
+                    <!-- This div will contain all the controls -->
                     <div style="display: flex; align-items: center; gap: 20px;">
+                        
+                        <!-- The new live status indicator -->
+                        <div id="live-status-indicator" class="status-indicator stopped">
+                            <span class="status-dot"></span>
+                            <span class="status-text">Stopped</span>
+                        </div>
+                
+                        <!-- The new control buttons -->
+                        <button id="start-bot-btn" class="btn btn-primary">Start Bot</button>
+                        <button id="stop-bot-btn" class="btn btn-danger">Stop Bot</button>
+                
+                        <!-- Existing user info and logout -->
                         <span id="user-info"></span>
                         <button id="logout-btn" class="btn btn-secondary">Logout</button>
                     </div>
@@ -553,6 +631,14 @@
                 <div class="section">
                     <div class="section-header">
                         <h2>Your Active Bot Team (Draft)</h2>
+                        <div class="actions">
+                            <button id="deploy-btn" class="btn btn-accent">
+                                <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" fill="currentColor" viewBox="0 0 16 16">
+                                    <path d="M15.854.146a.5.5 0 0 1 .11.54l-5.819 14.547a.75.75 0 0 1-1.329.124l-3.178-4.995L.643 7.184a.75.75 0 0 1 .124-1.33L15.314.037a.5.5 0 0 1 .54.11ZM6.636 10.07l2.761 4.338L14.13 2.576zm6.787-8.201L1.591 6.602l4.339 2.76z"/>
+                                </svg>
+                                Deploy Team
+                            </button>
+                        </div>
                     </div>
                     <div id="persona-grid-container">
                         <div class="empty-state" id="no-personas-message" style="display: none;">
@@ -623,7 +709,36 @@
             </div>
         </div>
     </div>
-
+    <div class="modal-overlay" id="connections-modal">
+        <div class="modal" style="max-width: 600px;">
+            <div class="modal-header">
+                <h2>Manage Connections & Start Bot</h2>
+                <button id="connections-close-btn" class="modal-close">&times;</button>
+            </div>
+            <div class="modal-body">
+                <p style="margin-bottom: 20px; color: var(--text-medium);">
+                    Select the platforms you want your bot to be active on. You must connect a platform before you can select it.
+                </p>
+                
+                <div id="connections-list">
+                    <!-- Connection items will be dynamically inserted here by JavaScript -->
+                    <!-- Example of what JS will create:
+                    <div class="connection-item">
+                        <input type="checkbox" id="select-telegram" data-platform="telegram">
+                        <label for="select-telegram">Telegram</label>
+                        <span class="status-badge connected">Connected</span>
+                        <button class="btn btn-secondary btn-sm">Settings</button>
+                    </div>
+                    -->
+                </div>
+                <p id="connections-message" style="min-height: 20px; font-weight: 500;"></p>
+            </div>
+            <div class="modal-footer">
+                <button id="connections-cancel-btn" class="btn btn-secondary">Cancel</button>
+                <button id="connections-start-btn" class="btn btn-primary">Save and Start Bot</button>
+            </div>
+        </div>
+    </div>
     <!-- This is the pop-up notification element -->
     <div id="notification"></div>
 
@@ -661,8 +776,33 @@
             const modalCancelBtn = document.getElementById('modal-cancel-btn');
             const modalSaveBtn = document.getElementById('modal-save-btn');
             const modalTabsContainer = document.querySelector('.modal-tabs');
+            const deployBtn = document.getElementById('deploy-btn');
+            const startBotBtn = document.getElementById('start-bot-btn');
+            const stopBotBtn = document.getElementById('stop-bot-btn');
+            const liveStatusIndicator = document.getElementById('live-status-indicator');
+            const telegramModal = document.getElementById('telegram-modal');
+            const telegramCancelBtn = document.getElementById('telegram-cancel-btn');
+            const telegramNextBtn = document.getElementById('telegram-next-btn');
+            const connectionsModal = document.getElementById('connections-modal');
+            const connectionsCloseBtn = document.getElementById('connections-close-btn');
+            const connectionsCancelBtn = document.getElementById('connections-cancel-btn');
+            const connectionsStartBtn = document.getElementById('connections-start-btn');
+            const connectionsList = document.getElementById('connections-list');
+
+
+            // --- Placeholder ---
+
+            // Add this new function
+            function handleConnectPlatform(platform) {
+                // This is where the specific connection wizards will be triggered
+                showNotification(`Connect flow for ${platform} has not been implemented yet.`, 'info');
+                if (platform === 'telegram') {
+                    // In the future, this would call showTelegramModal(true);
+                }
+            }     
             
             // --- API HELPER ---
+
             // In your <script> tag
 
             async function apiRequest(endpoint, method, body = null) {
@@ -694,7 +834,6 @@
                             }
                         }
                         throw new Error(errorMessage);
-                        // -------------------------------------------------
                     }
                     return data;
                 } catch (error) {
@@ -748,6 +887,15 @@
                 localStorage.setItem('authToken', token);
                 localStorage.setItem('currentUserEmail', email);
                 userInfo.textContent = `Logged in as: ${email}`;
+            }
+            function showTelegramModal(shouldShow) {
+                if (!telegramModal) return;
+                telegramModal.style.display = shouldShow ? 'flex' : 'none';
+                // Reset to step 1 every time it's opened
+                telegramModal.querySelectorAll('.telegram-step').forEach(step => step.style.display = 'none');
+                document.getElementById('telegram-step-1').style.display = 'block';
+                document.getElementById('telegram-instructions').textContent = 'Please provide your Telegram API credentials and phone number.';
+                document.getElementById('telegram-message').textContent = '';
             }
 
             function showScreen(screenId) {
@@ -810,6 +958,58 @@
                     }
                 });
             }
+            function updateLiveStatus(isActive) {
+                if (!liveStatusIndicator) return;
+                const dot = liveStatusIndicator.querySelector('.status-dot');
+                const text = liveStatusIndicator.querySelector('.status-text');
+
+                if (isActive) {
+                    liveStatusIndicator.className = 'status-indicator running';
+                    text.textContent = 'Running';
+                } else {
+                    liveStatusIndicator.className = 'status-indicator stopped';
+                    text.textContent = 'Stopped';
+                }
+            }
+            function renderConnectionsList(statuses) {
+                connectionsList.innerHTML = ''; // Clear previous list
+                if (!statuses) return;
+
+                statuses.forEach(status => {
+                    const item = document.createElement('div');
+                    item.className = 'connection-item';
+
+                    const isConnected = status.isConnected;
+                    const platform = status.platform;
+                    
+                    item.innerHTML = `
+                        <input type="checkbox" id="select-${platform}" data-platform="${platform}" ${!isConnected ? 'disabled' : ''} ${status.isActiveNow ? 'checked' : ''}>
+                        <label for="select-${platform}" style="${!isConnected ? 'color: var(--text-light);' : ''}">${platform.charAt(0).toUpperCase() + platform.slice(1)}</label>
+                        <span class="status-badge ${isConnected ? 'connected' : 'disconnected'}">${isConnected ? 'Connected' : 'Not Connected'}</span>
+                        <button class="btn btn-secondary btn-sm js-connect-btn" data-platform="${platform}">
+                            ${isConnected ? 'Settings' : 'Connect'}
+                        </button>
+                    `;
+                    connectionsList.appendChild(item);
+                });
+
+                // Add event listener for the new "Connect" buttons
+                connectionsList.querySelectorAll('.js-connect-btn').forEach(btn => {
+                    btn.addEventListener('click', () => handleConnectPlatform(btn.dataset.platform));
+                });
+            }
+
+            async function showConnectionsModal() {
+                connectionsModal.style.display = 'flex';
+                connectionsList.innerHTML = '<p>Loading connection statuses...</p>'; // Show loading state
+                
+                try {
+                    const statuses = await apiRequest('/api/connections', 'GET');
+                    renderConnectionsList(statuses);
+                } catch (error) {
+                    connectionsList.innerHTML = `<p style="color: var(--danger-color);">Could not load statuses: ${error.message}</p>`;
+                }
+            }
 
             // --- PERSONA DATA & RENDERING ---
             function renderActiveTeam() {
@@ -850,18 +1050,68 @@
             async function loadUserPersonas() {
                 showNotification("Loading your draft team...", 'info');
                 try {
-                    const personas = await apiRequest('/api/draft', 'GET');
-                    activeTeam = personas;
+                    // We're now fetching the entire personaConfig
+                    const config = await apiRequest('/api/config', 'GET'); // We will create this endpoint next
+                    activeTeam = config.draftTeam || [];
+                    updateLiveStatus(config.isActive || false);
                     renderActiveTeam();
-                    showNotification("Draft loaded successfully!", 'success');
+                    showNotification("Configuration loaded successfully!", 'success');
                 } catch (error) {
-                    showNotification(`Could not load draft: ${error.message}`, 'error');
+                    showNotification(`Could not load config: ${error.message}`, 'error');
                     activeTeam = [];
+                    updateLiveStatus(false);
                     renderActiveTeam();
                 }
             }
 
             // --- PERSONA GENERATION & EDITING ---
+
+            function handleStartBot() {
+                showConnectionsModal();
+            }
+
+            // Add this new function
+            async function handleSaveAndStart() {
+                const selectedPlatforms = [];
+                connectionsList.querySelectorAll('input[type="checkbox"]:checked').forEach(checkbox => {
+                    selectedPlatforms.push(checkbox.dataset.platform);
+                });
+
+                if (selectedPlatforms.length === 0) {
+                    showNotification("Please select at least one connected platform to start.", 'error');
+                    return;
+                }
+
+                connectionsStartBtn.disabled = true;
+                connectionsStartBtn.textContent = 'Starting...';
+
+                try {
+                    const result = await apiRequest('/api/start', 'POST', { platforms: selectedPlatforms });
+                    showNotification(result.message, 'success');
+                    updateLiveStatus(true);
+                    connectionsModal.style.display = 'none'; // Close modal on success
+                } catch (error) {
+                    showNotification(`Start Failed: ${error.message}`, 'error');
+                } finally {
+                    connectionsStartBtn.disabled = false;
+                    connectionsStartBtn.textContent = 'Save and Start Bot';
+                }
+            }
+
+            async function handleStopBot() {
+                stopBotBtn.disabled = true;
+                stopBotBtn.textContent = 'Stopping...';
+                try {
+                    const result = await apiRequest('/api/stop', 'POST');
+                    showNotification(result.message, 'success');
+                    updateLiveStatus(false); // Update the UI immediately
+                } catch (error) {
+                    showNotification(`Stop Failed: ${error.message}`, 'error');
+                } finally {
+                    stopBotBtn.disabled = false;
+                    stopBotBtn.textContent = 'Stop Bot';
+                }
+            }
             async function handleGenerate() {
                 try {
                     showNotification("Checking credentials...", 'info');
@@ -986,6 +1236,34 @@
                     renderActiveTeam();
                 }
             }
+            // In your <script> tag
+
+            async function handleDeploy() {
+                if (!activeTeam || activeTeam.length === 0) {
+                    showNotification("You cannot deploy an empty team.", 'error');
+                    return;
+                }
+
+                // Show a confirmation dialog to the user
+                if (confirm(`Are you sure you want to deploy these ${activeTeam.length} personas? This will overwrite your current live configuration.`)) {
+                    
+                    const originalBtnText = deployBtn.innerHTML;
+                    deployBtn.disabled = true;
+                    deployBtn.innerHTML = 'Deploying...';
+                    showNotification("Deploying team to live...", 'info');
+
+                    try {
+                        const result = await apiRequest('/api/deploy', 'POST');
+                        showNotification(result.message, 'success');
+                    } catch (error) {
+                        // The API request function will now handle the error message formatting
+                        showNotification(`Deployment Failed: ${error.message}`, 'error');
+                    } finally {
+                        deployBtn.disabled = false;
+                        deployBtn.innerHTML = originalBtnText;
+                    }
+                }
+            }
 
             // --- INITIALIZATION ---
             function initializeApp() {
@@ -1014,6 +1292,15 @@
                         showTab(tabName);
                     }
                 });
+                deployBtn.addEventListener('click', handleDeploy);
+                startBotBtn.addEventListener('click', handleStartBot);
+                stopBotBtn.addEventListener('click', handleStopBot);
+                telegramCancelBtn.addEventListener('click', () => showTelegramModal(false));
+                connectionsCloseBtn.addEventListener('click', () => connectionsModal.style.display = 'none');
+                connectionsCancelBtn.addEventListener('click', () => connectionsModal.style.display = 'none');
+                connectionsStartBtn.addEventListener('click', handleSaveAndStart);
+
+
             }
 
             initializeApp();

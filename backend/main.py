@@ -67,6 +67,9 @@ class GenerationRequest(BaseModel):
     
 class DraftUpdateRequest(BaseModel):
     activeTeam: list
+    
+class StartBotRequest(BaseModel):
+    platforms: list[str]
 # --- Security Dependency ---
 security = HTTPBearer()
 
@@ -283,3 +286,157 @@ async def update_draft_team(request: DraftUpdateRequest, uid: str = Depends(get_
         return {"message": "Draft saved successfully."}
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"Failed to save draft: {str(e)}")
+
+@app.post("/api/deploy", status_code=200, tags=["Persona Management"])
+async def deploy_team(uid: str = Depends(get_current_user)):
+    """
+    Promotes the user's draftTeam to the liveTeam after validation.
+    This is the user's "Go Live" action.
+    """
+    try:
+        db = firestore.client()
+        user_doc_ref = db.collection("customers").document(uid)
+        doc = user_doc_ref.get()
+
+        if not doc.exists:
+            raise HTTPException(status_code=404, detail="User data not found.")
+
+        data = doc.to_dict()
+        persona_config = data.get("personaConfig", {})
+        draft_team = persona_config.get("draftTeam", [])
+
+        # --- PRE-FLIGHT CHECK ---
+        # 1. Check if the draft team is empty.
+        if not draft_team:
+            raise HTTPException(
+                status_code=400, # 400 Bad Request
+                detail="Cannot deploy an empty team. Please generate or build a team first."
+            )
+        
+        # (Future pre-flight checks for service credentials would go here)
+
+        # --- DEPLOY ACTION ---
+        # Copy the draftTeam to the liveTeam field.
+        user_doc_ref.set({
+            "personaConfig": {
+                "liveTeam": draft_team,
+                "lastDeployed": firestore.SERVER_TIMESTAMP
+            }
+        }, merge=True) # merge=True is critical here
+
+        return {"message": "Team deployed successfully! Your bot will use this configuration on its next run."}
+
+    except HTTPException as e:
+        # Re-raise HTTPExceptions to preserve status code and details
+        raise e
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"An unexpected error occurred during deployment: {str(e)}")
+    
+
+@app.post("/api/start", status_code=200, tags=["Bot Control"])
+async def start_bot(request: StartBotRequest, uid: str = Depends(get_current_user)):
+    """
+    Sets the bot's desired state to 'active' for a specific list of platforms.
+    """
+    try:
+        db = firestore.client()
+        user_doc_ref = db.collection("customers").document(uid)
+        doc = user_doc_ref.get()
+
+        if not doc.exists:
+            raise HTTPException(status_code=404, detail="User data not found.")
+
+        # --- PRE-FLIGHT CHECKS ---
+        # 1. Check if a team has been deployed.
+        live_team = doc.to_dict().get("personaConfig", {}).get("liveTeam", [])
+        if not live_team:
+            raise HTTPException(status_code=400, detail="You must deploy a team before starting the bot.")
+
+        # 2. Check that at least one platform was selected to start.
+        if not request.platforms:
+            raise HTTPException(status_code=400, detail="You must select at least one platform to start.")
+
+        # 3. For each selected platform, verify that a connection document exists.
+        connections_ref = user_doc_ref.collection("connections")
+        for platform in request.platforms:
+            if not connections_ref.document(platform).get().exists:
+                raise HTTPException(
+                    status_code=428,
+                    detail=f"Connection required for {platform}. Please connect it first."
+                )
+        
+        # --- START ACTION ---
+        user_doc_ref.set({
+            "personaConfig": {
+                "isActive": True,
+                "activePlatforms": request.platforms, # Store the list of active platforms
+                "lastStarted": firestore.SERVER_TIMESTAMP
+            }
+        }, merge=True)
+
+        return {"message": f"Bot start signal sent for: {', '.join(request.platforms)}."}
+    except HTTPException as e:
+        raise e
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"An unexpected error occurred: {str(e)}")
+
+@app.post("/api/stop", status_code=200, tags=["Bot Control"])
+async def stop_bot(uid: str = Depends(get_current_user)):
+    """Sets the bot's desired state to 'inactive'."""
+    try:
+        db = firestore.client()
+        user_doc_ref = db.collection("customers").document(uid)
+        user_doc_ref.set({
+            "personaConfig": {
+                "isActive": False,
+                "lastStopped": firestore.SERVER_TIMESTAMP
+            }
+        }, merge=True)
+        return {"message": "Bot stop signal sent successfully."}
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"An unexpected error occurred: {str(e)}")
+
+
+@app.get("/api/config", tags=["Persona Management"])
+async def get_user_config(uid: str = Depends(get_current_user)):
+    """Fetches the user's entire personaConfig map."""
+    try:
+        db = firestore.client()
+        doc = db.collection("customers").document(uid).get()
+        if doc.exists:
+            return doc.to_dict().get("personaConfig", {})
+        return {}
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+    
+@app.get("/api/connections", tags=["Bot Control"])
+async def get_connections_status(uid: str = Depends(get_current_user)):
+    """
+    Checks which platforms the user has connected and which are active.
+    """
+    try:
+        db = firestore.client()
+        
+        # Get the list of currently active platforms
+        doc = db.collection("customers").document(uid).get()
+        persona_config = doc.to_dict().get("personaConfig", {})
+        active_platforms = persona_config.get("activePlatforms", [])
+
+        # Check which connection documents exist
+        connections_ref = db.collection("customers").document(uid).collection("connections")
+        
+        # List of supported platforms
+        supported_platforms = ["telegram", "discord", "slack"]
+        
+        status_list = []
+        for platform in supported_platforms:
+            platform_doc = connections_ref.document(platform).get()
+            status_list.append({
+                "platform": platform,
+                "isConnected": platform_doc.exists,
+                "isActiveNow": platform in active_platforms
+            })
+            
+        return status_list
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"An unexpected error occurred: {str(e)}")
