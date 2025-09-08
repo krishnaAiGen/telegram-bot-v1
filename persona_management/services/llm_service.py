@@ -1,40 +1,24 @@
-# persona-management/services/llm_service.py
+# persona_management/services/llm_service.py
 
 import json
 from openai import AsyncOpenAI
-from typing import Any, Dict, List
-import sys
-import os
+from typing import Any, Dict
 
-# It adds the parent directory ('telegram-bot-v1') to the Python path
-project_root = os.path.abspath(os.path.join(os.path.dirname(__file__), '..', '..'))
-sys.path.insert(0, project_root)
+# This service is now fully stateless. It does not load any config.
+LLM_MODEL_NAME = "gpt-4-turbo-preview"
 
-from config.settings import APP_CONFIG
-
-# --- Initialize the OpenAI Client ---
-
-# We only need the OpenAI key for this module
-if not APP_CONFIG.get("openai_api_key"):
-    raise ValueError("CRITICAL: OPENAI_API_KEY is not found in the main .env file.")
-
-# Create a single, reusable async client instance
-client = AsyncOpenAI(api_key=APP_CONFIG["openai_api_key"])
-LLM_MODEL_NAME = "gpt-4-turbo-preview" # You can move this to a config later if you wish
-
-async def generate_text_response(prompt: str) -> str:
+async def generate_text_response(prompt: str, openai_api_key: str) -> str:
     """
-    Generates a simple text response from a given prompt.
-
-    Args:
-        prompt: The user-facing or system prompt.
-
-    Returns:
-        The text content of the AI's response.
+    Generates a simple text response using a provided OpenAI API key.
     """
+    if not openai_api_key:
+        raise ValueError("OpenAI API key is required for LLM service.")
+    
+    # Client is created on-demand with the user's key
+    client = AsyncOpenAI(api_key=openai_api_key)
+    
     try:
-        print(f"--- Sending prompt to {LLM_MODEL_NAME} ---")
-        # For simple text, you can use a basic chat completion
+        print(f"--- Sending text prompt to {LLM_MODEL_NAME} ---")
         response = await client.chat.completions.create(
             model=LLM_MODEL_NAME,
             messages=[
@@ -45,28 +29,23 @@ async def generate_text_response(prompt: str) -> str:
         )
         content = response.choices[0].message.content
         if not content:
-            raise ValueError("Received an empty response from the LLM.")
+            raise ValueError("LLM returned an empty response.")
         print("--- Received text response from LLM ---")
         return content.strip()
-
     except Exception as e:
-        print(f"ERROR: Failed to get text response from LLM: {e}")
-        # In a real app, you might want to return None or raise the exception
-        return f"Error: Could not process the request. Details: {e}"
+        print(f"CRITICAL ERROR in LLM text generation: {e}")
+        raise # Re-raise the exception to be handled by the agent
 
-async def generate_json_response(prompt: str) -> Dict[str, Any]:
+async def generate_json_response(prompt: str, openai_api_key: str) -> Dict[str, Any]:
     """
-    Generates a response from the LLM and forces it to be valid JSON.
-
-    This is the primary function our agents will use.
-
-    Args:
-        prompt: The system prompt instructing the AI to generate JSON.
-
-    Returns:
-        A dictionary parsed from the AI's JSON response.
-        Returns an empty dictionary on failure.
+    Generates a structured JSON response using a provided OpenAI API key.
     """
+    if not openai_api_key:
+        raise ValueError("OpenAI API key is required for LLM service.")
+
+    # Client is created on-demand with the user's key
+    client = AsyncOpenAI(api_key=openai_api_key)
+
     try:
         print(f"--- Sending JSON prompt to {LLM_MODEL_NAME} ---")
         response = await client.chat.completions.create(
@@ -78,21 +57,17 @@ async def generate_json_response(prompt: str) -> Dict[str, Any]:
                 },
                 {"role": "user", "content": prompt}
             ],
-            response_format={"type": "json_object"}, # This is the key feature for reliable JSON
-            temperature=0.3, # Lower temperature for more predictable, structured output
+            response_format={"type": "json_object"},
+            temperature=0.3,
         )
         
         content = response.choices[0].message.content
         if not content:
-            raise ValueError("Received an empty JSON response from the LLM.")
+            raise ValueError("LLM returned an empty JSON response.")
         
         print("--- Received and parsed JSON response from LLM ---")
-        # The content should be a valid JSON string, so we parse it
         return json.loads(content)
-
-    except json.JSONDecodeError as e:
-        print(f"ERROR: LLM returned invalid JSON. Content: '{content}'. Error: {e}")
-        return {"error": "LLM returned invalid JSON", "content": content}
     except Exception as e:
-        print(f"ERROR: Failed to get JSON response from LLM: {e}")
-        return {"error": f"Failed to get JSON response from LLM: {e}"}
+        print(f"CRITICAL ERROR in LLM JSON generation: {e}")
+        # Re-raise the exception to allow the calling agent to handle the failure
+        raise

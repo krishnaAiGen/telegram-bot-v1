@@ -47,7 +47,10 @@ async def run_feedback_loop_agent(state: PipelineState) -> PipelineState:
     )
 
     # We just need a simple text response here
-    refinement_instruction = await generate_text_response(prompt)
+    refinement_instruction = await generate_json_response(
+    prompt=prompt,
+    openai_api_key=state.openai_api_key
+)
     
     print(f"[FeedbackLoopAgent] Generated instruction: {refinement_instruction}")
 

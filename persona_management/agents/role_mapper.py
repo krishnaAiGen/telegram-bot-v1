@@ -61,8 +61,10 @@ async def run_role_mapper_agent(state: PipelineState) -> PipelineState:
     prompt = ROLE_MAPPER_PROMPT_TEMPLATE.format(task_list=formatted_task_list)
 
     # 2. Call the LLM service.
-    llm_response = await generate_json_response(prompt)
-
+    llm_response = await generate_json_response(
+    prompt=prompt,
+    openai_api_key=state.openai_api_key
+    )
     # 3. Validate the response and update the state.
     if "persona_blueprints" in llm_response and isinstance(llm_response["persona_blueprints"], list):
         try:
@@ -82,7 +84,7 @@ async def run_role_mapper_agent(state: PipelineState) -> PipelineState:
             error_message = f"RoleMapperAgent failed: Pydantic validation error. Details: {e}"
             print(f"ERROR: {error_message}")
             state.status = 'FAILED'
-            state.feedback_notes = error_message
+            state.history.append(error_message)
     else:
         error_message = "RoleMapperAgent failed: LLM output did not contain a valid 'persona_blueprints' list."
         print(f"ERROR: {error_message}")

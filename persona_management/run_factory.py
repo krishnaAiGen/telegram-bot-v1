@@ -2,6 +2,8 @@
 
 import asyncio
 import json
+import os
+from dotenv import load_dotenv
 from rich.console import Console
 from rich.syntax import Syntax
 
@@ -18,7 +20,14 @@ async def test_pipeline():
     console.print("[bold green]--- AI Persona Management Factory ---[/bold green]")
     console.print("This tool will generate a set of AI personas based on a high-level goal.")
     
-    # 1. Get the initial prompt from the user.
+    # 1. Load the OpenAI API key from the .env file
+    load_dotenv()
+    api_key = os.getenv("OPENAI_API_KEY")
+    if not api_key:
+        console.print("[bold red]CRITICAL: OPENAI_API_KEY not found in .env file. Exiting.[/bold red]")
+        return
+
+    # 2. Get the initial prompt from the user.
     try:
         initial_prompt = console.input("\n[bold]Enter your high-level goal for the bot:[/bold] ")
         if not initial_prompt:
@@ -28,15 +37,17 @@ async def test_pipeline():
         print("\nExiting.")
         return
 
-    # 2. Run the entire pipeline.
-    # The pipeline function handles all the complex orchestration and logging.
-    result = await run_persona_factory_pipeline(initial_prompt)
+    # 3. Run the entire pipeline, now passing the API key.
+    result = await run_persona_factory_pipeline(
+        initial_prompt=initial_prompt,
+        api_key=api_key
+    )
 
-    # 3. Display the final result.
+    # 4. Display the final result.
     console.print("\n\n[bold green]--- PIPELINE FINAL OUTPUT ---[/bold green]")
     
     if result.get("status") == "success":
-        # Use Rich to pretty-print the JSON with syntax highlighting
+        # We'll display the raw personas list for this test script
         json_output = json.dumps(result.get("personas", []), indent=2)
         syntax = Syntax(json_output, "json", theme="solarized-dark", line_numbers=True)
         console.print(syntax)

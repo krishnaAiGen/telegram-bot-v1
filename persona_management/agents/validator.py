@@ -66,7 +66,10 @@ async def run_validator_agent(state: PipelineState) -> Tuple[bool, List[str]]:
         persona_list_json=persona_list_json
     )
     
-    llm_response = await generate_json_response(prompt)
+    llm_response = await generate_json_response(
+    prompt=prompt,
+    openai_api_key=state.openai_api_key
+)
 
     is_valid = llm_response.get("is_valid", False)
     errors = llm_response.get("errors", ["LLM response was malformed."])

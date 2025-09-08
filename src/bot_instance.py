@@ -1,68 +1,74 @@
 # src/bot_instance.py
 
+import asyncio
 from dataclasses import dataclass, field
 from typing import List, Dict, Any
 
-# We will need to refactor these later, but for now, we import them
-# to see how they will connect to the instance.
 from src.core_logic.llm_personas import PersonaManager
 from src.services.state_manager import StateManager
+from src.services.openai_chat import get_embedding
 
 @dataclass
 class BotInstance:
-    """
-    A self-contained container for all data, configuration, and state
-    related to a single tenant's running bot instance.
-    """
+    """A self-contained container for a single tenant's running bot instance."""
     user_id: str
     user_config: Dict[str, Any]
     
-    # These fields will be populated from the user_config dictionary upon initialization
     live_team: List[Dict[str, Any]] = field(init=False)
     credentials: Dict[str, Any] = field(init=False)
     behavior_settings: Dict[str, Any] = field(init=False)
-    
-    # User-specific service managers
     persona_manager: PersonaManager = field(init=False)
     state_manager: StateManager = field(init=False)
-    
-    # Placeholder for the actual, live platform clients (e.g., Telethon client)
-    platform_clients: Dict[str, Any] = field(default_factory=dict, init=False)
+    persona_embeddings: Dict[str, List[float]] = field(init=False, default_factory=dict)
+    persona_names: List[str] = field(init=False, default_factory=list)
+    platform_clients: Dict[str, Any] = field(init=False, default_factory=dict)
 
     def __post_init__(self):
-        """
-        This special dataclass method runs after the object is created.
-        It's the perfect place to unpack the user_config and initialize
-        our user-specific components.
-        """
-        print(f"--- Initializing BotInstance for user: {self.user_id} ---")
-
-        # 1. Unpack the main configuration dictionary
-        self.live_team = self.user_config.get("liveTeam", [])
-        self.credentials = self.user_config.get("connections", {})
-        self.behavior_settings = self.user_config.get("botConfig", {}) # e.g., for response rates
-
-        # 2. Initialize user-specific, stateful services
-        #    NOTE: This will require refactoring StateManager and PersonaManager later
-        #    to accept this new kind of initialization.
+        """Synchronously unpacks the config dictionary using correct paths."""
+        print(f"--- Creating BotInstance for user: {self.user_id} ---")
         
-        # This will fail until PersonaManager is refactored, but it shows the intent
-        try:
-            self.persona_manager = PersonaManager(personas=self.live_team)
-            print(f"  -> PersonaManager initialized with {len(self.live_team)} personas.")
-        except Exception as e:
-            print(f"  -> WARNING: Could not initialize PersonaManager. Needs refactoring. Error: {e}")
-            self.persona_manager = None
+        # --- THIS IS THE CRITICAL FIX ---
+        persona_config = self.user_config.get("personaConfig", {})
+        self.live_team = persona_config.get("liveTeam", [])
+        self.credentials = self.user_config.get("connections", {})
+        self.behavior_settings = persona_config
+        # --- END OF FIX ---
 
-        # This will fail until StateManager is refactored, but it shows the intent
-        try:
-            # We assume a primary connectionId might be passed in behavior_settings
-            # This logic will become more robust later.
-            primary_connection = self.behavior_settings.get("primary_connection_id", "default")
-            self.state_manager = StateManager(user_id=self.user_id, connection_id=primary_connection)
-            print(f"  -> StateManager initialized for connection: {primary_connection}")
-        except Exception as e:
-            print(f"  -> WARNING: Could not initialize StateManager. Needs refactoring. Error: {e}")
-            self.state_manager = None
-            
-        print(f"--- BotInstance for {self.user_id} is ready. ---")
+        self.persona_manager = PersonaManager(personas=self.live_team)
+
+    async def _initialize_embeddings(self):
+        """Generates and stores persona embeddings once on startup."""
+        print(f"  -> Initializing embeddings for user {self.user_id}...")
+        
+        openai_api_key = self.credentials.get("openai", {}).get("key")
+
+
+
+        if not openai_api_key or not self.persona_manager.all_personas:
+            print(f"  -> WARNING: Skipping embedding generation for user {self.user_id}. Key found: {bool(openai_api_key)}, Personas: {bool(self.persona_manager.all_personas)}")
+            return
+
+        tasks = []
+        for p in self.persona_manager.all_personas:
+            desc = f"Role: {p.get('role', '')}. Expertise: {', '.join(p.get('expertise', []))}."
+            tasks.append(get_embedding(desc, api_key=openai_api_key))
+        
+        embeddings_results = await asyncio.gather(*tasks)
+        
+        for i, p in enumerate(self.persona_manager.all_personas):
+            if embeddings_results[i]:
+                persona_name = p.get('persona_name')
+                if persona_name:
+                    self.persona_embeddings[persona_name] = embeddings_results[i]
+                    self.persona_names.append(persona_name)
+        
+        print(f"  -> Successfully cached {len(self.persona_embeddings)} embeddings for user {self.user_id}.")
+
+    async def initialize(self, db):
+        """Asynchronously initializes stateful services and pre-calculates data."""
+        primary_connection_id = self.behavior_settings.get("primary_connection_id", "default_connection")
+        self.state_manager = StateManager(db=db, user_id=self.user_id, connection_id=primary_connection_id)
+        
+        await self._initialize_embeddings()
+        
+        print(f"--- BotInstance for {self.user_id} is fully initialized and ready. ---")

@@ -1,46 +1,40 @@
 # src/listeners/slack_listener.py
 
-import asyncio
 from slack_bolt.async_app import AsyncApp
-from src.core_logic.internal_message import InternalMessage
+from slack_bolt.adapter.socket_mode.async_handler import AsyncSocketModeHandler
 from asyncio import Queue
 
-async def slack_listener_worker(app: AsyncApp, brain_queue: Queue, target_channel_id: str):
-    """
-    A dedicated worker that listens for Slack messages, converts them,
-    and puts them on the brain_queue.
-    """
-    print("[SLACK_LISTENER] Worker started.")
+from src.core_logic.internal_message import InternalMessage
+from src.bot_instance import BotInstance
+
+async def slack_listener_task(brain_queue: Queue, bot_instance: BotInstance):
+    """A self-contained task that connects to Slack and listens for messages."""
+    user_id = bot_instance.user_id
+    creds = bot_instance.credentials.get("slack", {})
+    bot_token = creds.get("bot_token")
+    app_token = creds.get("app_token")
     
-    # CORRECTED: Use the more general "message" event handler
+    target_channel_id = creds.get("channel_id")
+
+    if not all([bot_token, app_token, target_channel_id]):
+        print(f"[SLACK LISTENER] Cannot start for user {user_id}: missing credentials.")
+        return
+
+    app = AsyncApp(token=bot_token)
+    
     @app.event("message")
-    async def handle_message_events(body: dict, logger):
-        """
-        This function is triggered for ANY new message event the bot can see.
-        """
+    async def handle_message_events(body: dict, say):
         event = body.get("event", {})
-        
-        # --- We now check the channel ID inside the handler ---
         channel_id = event.get("channel")
+        if channel_id != target_channel_id or event.get("bot_id"):
+            return
         
-
-        # 1. Ignore messages that are not from our target channel
-        if channel_id != target_channel_id:
-            return
-
-        # 2. Ignore messages from bots (including ourself) to prevent loops
-        if event.get("bot_id"):
-            return
-            
         text = event.get("text")
         if not text:
             return
         
-        print(f"[SLACK_DEBUG] Message received. Event User ID: {event.get('user')}, Bot ID: {event.get('bot_id')}")
+        print(f"[SLACK LISTENER] User {user_id} received message: '{text[:50]}...'")
 
-        print(f"[SLACK_LISTENER] Received Slack message in target channel: '{text[:50]}...'")
-
-        # Convert the Slack message into our standardized InternalMessage format
         internal_msg = InternalMessage(
             platform='slack',
             channel_id=str(channel_id),
@@ -48,8 +42,13 @@ async def slack_listener_worker(app: AsyncApp, brain_queue: Queue, target_channe
             text=str(text),
             sender_id=str(event.get("user"))
         )
-        
-        # Put the standardized message onto the brain queue for processing
         await brain_queue.put(internal_msg)
 
-    print("[SLACK_LISTENER] General message handler registered.")
+    handler = AsyncSocketModeHandler(app, app_token)
+    try:
+        print(f"[SLACK LISTENER] Connecting for user {user_id}...")
+        await handler.start_async()
+    except Exception as e:
+        print(f"CRITICAL ERROR in Slack Listener for user {user_id}: {e}")
+    finally:
+        print(f"[SLACK LISTENER] Disconnected for user {user_id}.")

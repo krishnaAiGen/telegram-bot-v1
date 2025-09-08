@@ -51,7 +51,7 @@ async def run_linker_agent(state: PipelineState) -> PipelineState:
         error_message = "LinkerAgent failed: No personas available to link."
         print(f"ERROR: {error_message}")
         state.status = 'FAILED'
-        state.feedback_notes = error_message
+        state.history.append(error_message)
         return state
 
     persona_list_dict = [p.model_dump(exclude={'interaction_rules'}) for p in state.generated_personas]
@@ -59,7 +59,10 @@ async def run_linker_agent(state: PipelineState) -> PipelineState:
 
     prompt = LINKER_PROMPT_TEMPLATE.format(persona_list_json=persona_list_json)
 
-    llm_response = await generate_json_response(prompt)
+    llm_response = await generate_json_response(
+    prompt=prompt,
+    openai_api_key=state.openai_api_key
+    )
 
     if "interaction_playbook" in llm_response and isinstance(llm_response["interaction_playbook"], list):
         playbook = llm_response["interaction_playbook"]

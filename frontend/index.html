@@ -404,20 +404,25 @@
             justify-content: flex-end;
             gap: 10px;
         }
+
         /* --- ADD THIS CSS FOR THE LOADER --- */
         #loading-overlay {
-            position: fixed; /* Sit on top of the page content */
+            position: fixed;
+            /* Sit on top of the page content */
             top: 0;
             left: 0;
             width: 100%;
             height: 100%;
-            background-color: rgba(0, 0, 0, 0.6); /* Semi-transparent black */
-            backdrop-filter: blur(4px); /* A nice blur effect */
+            background-color: rgba(0, 0, 0, 0.6);
+            /* Semi-transparent black */
+            backdrop-filter: blur(4px);
+            /* A nice blur effect */
             display: flex;
             flex-direction: column;
             justify-content: center;
             align-items: center;
-            z-index: 9999; /* Make sure it's on top of everything */
+            z-index: 9999;
+            /* Make sure it's on top of everything */
         }
 
         #loading-overlay p {
@@ -430,8 +435,10 @@
         .spinner {
             width: 50px;
             height: 50px;
-            border: 5px solid rgba(255, 255, 255, 0.3); /* Light track */
-            border-top-color: var(--primary-color); /* Your theme's primary color */
+            border: 5px solid rgba(255, 255, 255, 0.3);
+            /* Light track */
+            border-top-color: var(--primary-color);
+            /* Your theme's primary color */
             border-radius: 50%;
             animation: spin 1s linear infinite;
         }
@@ -487,6 +494,7 @@
             font-size: 48px;
             margin-bottom: 15px;
         }
+
         .status-indicator {
             display: flex;
             align-items: center;
@@ -496,25 +504,37 @@
             font-weight: 600;
             font-size: 14px;
         }
+
         .status-indicator.stopped {
-            background-color: #FEF2F2; /* Red-50 */
-            color: #991B1B; /* Red-800 */
+            background-color: #FEF2F2;
+            /* Red-50 */
+            color: #991B1B;
+            /* Red-800 */
         }
+
         .status-indicator.running {
-            background-color: #ECFDF5; /* Green-50 */
-            color: #065F46; /* Green-800 */
+            background-color: #ECFDF5;
+            /* Green-50 */
+            color: #065F46;
+            /* Green-800 */
         }
+
         .status-dot {
             width: 10px;
             height: 10px;
             border-radius: 50%;
         }
+
         .status-indicator.stopped .status-dot {
-            background-color: #DC2626; /* Red-600 */
+            background-color: #DC2626;
+            /* Red-600 */
         }
+
         .status-indicator.running .status-dot {
-            background-color: #10B981; /* Green-500 */
+            background-color: #10B981;
+            /* Green-500 */
         }
+
         .connection-item {
             display: flex;
             align-items: center;
@@ -524,17 +544,20 @@
             margin-bottom: 10px;
             gap: 15px;
         }
+
         .connection-item input[type="checkbox"] {
             width: 20px;
             height: 20px;
             accent-color: var(--primary-color);
         }
+
         .connection-item label {
             font-weight: 600;
             font-size: 18px;
             margin-bottom: 0;
             flex-grow: 1;
         }
+
         .status-badge {
             font-size: 12px;
             font-weight: 700;
@@ -542,15 +565,41 @@
             border-radius: 12px;
             text-transform: uppercase;
         }
+
         .status-badge.connected {
-            background-color: #ECFDF5; /* Green-50 */
-            color: #065F46; /* Green-800 */
+            background-color: #ECFDF5;
+            /* Green-50 */
+            color: #065F46;
+            /* Green-800 */
         }
+
         .status-badge.disconnected {
-            background-color: #F1F5F9; /* Slate-100 */
-            color: #475569; /* Slate-600 */
+            background-color: #F1F5F9;
+            /* Slate-100 */
+            color: #475569;
+            /* Slate-600 */
         }
-        
+
+        /* Add to your <style> block */
+        .connection-section {
+            margin-bottom: 20px;
+            border: 1px solid var(--border-color);
+            padding: 15px;
+            border-radius: 8px;
+        }
+
+        .connection-section>label {
+            font-size: 16px;
+            font-weight: 600;
+            margin-bottom: 10px;
+            display: block;
+        }
+
+        .connection-status {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+        }
     </style>
 </head>
 
@@ -559,13 +608,13 @@
     <!-- This overlay is for the spinning loader during generation -->
     <div id="loading-overlay" style="display: none;">
         <div class="spinner"></div>
-        <p>Generating your AI team... this may take a moment.</p>
+        <p>Generating your AI team...</p>
     </div>
 
     <!-- This is a general container for the whole app -->
     <div id="app-container">
 
-        <!-- Screen 1: The Login Form (Shown by default) -->
+        <!-- Screen 1: The Login Form -->
         <div class="screen active" id="login-screen">
             <div class="auth-container">
                 <h1>AI Persona Dashboard</h1>
@@ -585,26 +634,18 @@
             </div>
         </div>
 
-        <!-- Screen 2: The Main Dashboard (Hidden by default) -->
+        <!-- Screen 2: The Main Dashboard -->
         <div class="screen" id="dashboard-screen">
             <div class="container">
                 <header class="dashboard-header">
                     <h1>AI Persona Dashboard</h1>
-                    
-                    <!-- This div will contain all the controls -->
                     <div style="display: flex; align-items: center; gap: 20px;">
-                        
-                        <!-- The new live status indicator -->
                         <div id="live-status-indicator" class="status-indicator stopped">
                             <span class="status-dot"></span>
                             <span class="status-text">Stopped</span>
                         </div>
-                
-                        <!-- The new control buttons -->
                         <button id="start-bot-btn" class="btn btn-primary">Start Bot</button>
                         <button id="stop-bot-btn" class="btn btn-danger">Stop Bot</button>
-                
-                        <!-- Existing user info and logout -->
                         <span id="user-info"></span>
                         <button id="logout-btn" class="btn btn-secondary">Logout</button>
                     </div>
@@ -620,7 +661,8 @@
                             placeholder="e.g., A friendly and professional team for a new SaaS product's Discord..."></textarea>
                     </div>
                     <button id="generate-btn" class="btn btn-primary">
-                        <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" fill="currentColor" viewBox="0 0 16 16">
+                        <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" fill="currentColor"
+                            viewBox="0 0 16 16">
                             <path
                                 d="M9.302 1.256a1.5 1.5 0 0 0-2.604 0l-1.704 2.952a.5.5 0 0 0 .434.748H6.5v1a.5.5 0 0 0 .5.5h2a.5.5 0 0 0 .5-.5v-1h1.97a.5.5 0 0 0 .434-.748zM4.994 11.691a2.5 2.5 0 0 0 5.012 0l1.767-3.06a.5.5 0 0 0-.433-.748H10.5v-1a.5.5 0 0 0-.5-.5h-2a.5.5 0 0 0-.5.5v1H6.03a.5.5 0 0 0-.433.748z" />
                         </svg>
@@ -633,8 +675,10 @@
                         <h2>Your Active Bot Team (Draft)</h2>
                         <div class="actions">
                             <button id="deploy-btn" class="btn btn-accent">
-                                <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" fill="currentColor" viewBox="0 0 16 16">
-                                    <path d="M15.854.146a.5.5 0 0 1 .11.54l-5.819 14.547a.75.75 0 0 1-1.329.124l-3.178-4.995L.643 7.184a.75.75 0 0 1 .124-1.33L15.314.037a.5.5 0 0 1 .54.11ZM6.636 10.07l2.761 4.338L14.13 2.576zm6.787-8.201L1.591 6.602l4.339 2.76z"/>
+                                <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" fill="currentColor"
+                                    viewBox="0 0 16 16">
+                                    <path
+                                        d="M15.854.146a.5.5 0 0 1 .11.54l-5.819 14.547a.75.75 0 0 1-1.329.124l-3.178-4.995L.643 7.184a.75.75 0 0 1 .124-1.33L15.314.037a.5.5 0 0 1 .54.11ZM6.636 10.07l2.761 4.338L14.13 2.576zm6.787-8.201L1.591 6.602l4.339 2.76z" />
                                 </svg>
                                 Deploy Team
                             </button>
@@ -643,13 +687,12 @@
                     <div id="persona-grid-container">
                         <div class="empty-state" id="no-personas-message" style="display: none;">
                             <div class="empty-state-icon">🤖</div>
-                            <p>Your active team is empty.</p>
+                            <p>Your team is empty.</p>
                             <span>Generate a new team to get started.</span>
                         </div>
                         <div id="persona-grid"></div>
                     </div>
                 </div>
-
             </div>
         </div>
     </div>
@@ -661,7 +704,8 @@
                 <h2>OpenAI API Key Required</h2>
             </div>
             <div class="modal-body">
-                <p>To generate AI personas, this application needs your OpenAI API key. Your key is stored encrypted and only used on your behalf.</p>
+                <p>To generate AI personas, this application needs your OpenAI API key. Your key is stored encrypted and
+                    only used on your behalf.</p>
                 <div class="form-group">
                     <label for="openai-api-key">Your OpenAI API Key</label>
                     <input type="password" id="openai-api-key" placeholder="sk-...">
@@ -669,12 +713,12 @@
                 <p id="api-key-message" style="min-height: 20px; font-weight: 500;"></p>
             </div>
             <div class="modal-footer" style="justify-content: space-between;">
-                 <a href="https://platform.openai.com/api-keys" target="_blank">Find your key</a>
+                <a href="https://platform.openai.com/api-keys" target="_blank">Find your key</a>
                 <button id="save-api-key-btn" class="btn btn-primary">Save and Continue</button>
             </div>
         </div>
     </div>
-    
+
     <div class="modal-overlay" id="edit-persona-modal">
         <div class="modal">
             <div class="modal-header">
@@ -688,19 +732,26 @@
                     <button class="tab-button" data-tab="knowledge">Knowledge & Rules</button>
                 </div>
                 <div class="tab-content active" id="tab-core">
-                    <div class="form-group"><label for="edit-persona_name">Persona Name</label><input type="text" id="edit-persona_name"></div>
+                    <div class="form-group"><label for="edit-persona_name">Persona Name</label><input type="text"
+                            id="edit-persona_name"></div>
                     <div class="form-group"><label for="edit-role">Role</label><input type="text" id="edit-role"></div>
-                    <div class="form-group"><label for="edit-tagline">Tagline</label><input type="text" id="edit-tagline"></div>
-                    <div class="form-group"><label for="edit-key_traits">Key Traits (comma-separated)</label><input type="text" id="edit-key_traits"></div>
-                    <div class="form-group"><label for="edit-expertise">Expertise (comma-separated)</label><input type="text" id="edit-expertise"></div>
+                    <div class="form-group"><label for="edit-tagline">Tagline</label><input type="text"
+                            id="edit-tagline"></div>
+                    <div class="form-group"><label for="edit-key_traits">Key Traits (comma-separated)</label><input
+                            type="text" id="edit-key_traits"></div>
+                    <div class="form-group"><label for="edit-expertise">Expertise (comma-separated)</label><input
+                            type="text" id="edit-expertise"></div>
                 </div>
                 <div class="tab-content" id="tab-voice">
                     <div class="form-group"><label for="edit-tone">Tone</label><input type="text" id="edit-tone"></div>
-                    <div class="form-group"><label for="edit-style">Style</label><textarea id="edit-style"></textarea></div>
-                    <div class="form-group"><label><input type="checkbox" id="edit-allow_emojis"> Allow use of Emojis</label></div>
+                    <div class="form-group"><label for="edit-style">Style</label><textarea id="edit-style"></textarea>
+                    </div>
+                    <div class="form-group"><label><input type="checkbox" id="edit-allow_emojis"> Allow use of
+                            Emojis</label></div>
                 </div>
                 <div class="tab-content" id="tab-knowledge">
-                    <div class="form-group"><label for="edit-interaction_rules">Interaction Rules (one per line)</label><textarea id="edit-interaction_rules"></textarea></div>
+                    <div class="form-group"><label for="edit-interaction_rules">Interaction Rules (one per
+                            line)</label><textarea id="edit-interaction_rules"></textarea></div>
                 </div>
             </div>
             <div class="modal-footer">
@@ -709,6 +760,7 @@
             </div>
         </div>
     </div>
+
     <div class="modal-overlay" id="connections-modal">
         <div class="modal" style="max-width: 600px;">
             <div class="modal-header">
@@ -716,21 +768,9 @@
                 <button id="connections-close-btn" class="modal-close">&times;</button>
             </div>
             <div class="modal-body">
-                <p style="margin-bottom: 20px; color: var(--text-medium);">
-                    Select the platforms you want your bot to be active on. You must connect a platform before you can select it.
-                </p>
-                
-                <div id="connections-list">
-                    <!-- Connection items will be dynamically inserted here by JavaScript -->
-                    <!-- Example of what JS will create:
-                    <div class="connection-item">
-                        <input type="checkbox" id="select-telegram" data-platform="telegram">
-                        <label for="select-telegram">Telegram</label>
-                        <span class="status-badge connected">Connected</span>
-                        <button class="btn btn-secondary btn-sm">Settings</button>
-                    </div>
-                    -->
-                </div>
+                <p>Select the platforms you want your bot to be active on. You must connect a platform before you can
+                    select it.</p>
+                <div id="connections-list"></div>
                 <p id="connections-message" style="min-height: 20px; font-weight: 500;"></p>
             </div>
             <div class="modal-footer">
@@ -739,8 +779,229 @@
             </div>
         </div>
     </div>
+    <!-- In frontend/index.html, inside the <body> -->
+
+    <!-- MODAL 1: The Main Telegram Settings Hub -->
+    <div class="modal-overlay" id="telegram-settings-modal">
+        <div class="modal" style="max-width: 700px;">
+            <div class="modal-header">
+                <h2>Telegram Settings</h2>
+                <button id="tg-settings-close-btn" class="modal-close">&times;</button>
+            </div>
+            <div class="modal-body">
+                <!-- Section 1: Target Group ID -->
+                <div class="form-group">
+                    <label for="tg-group-id">Target Group ID</label>
+                    <input type="text" id="tg-group-id" placeholder="e.g., -100123456789">
+                </div>
+
+                <!-- Section 2: Ingestor (Listener) Account -->
+                <div id="ingestor-section" class="connection-section">
+                    <label>Listener (Ingestor) Account</label>
+                    <div class="connection-status">
+                        <span id="ingestor-status-badge" class="status-badge disconnected">Not Connected</span>
+                        <button id="connect-ingestor-btn" class="btn btn-secondary btn-sm">Connect</button>
+                    </div>
+                </div>
+
+                <!-- Section 3: Sender Accounts -->
+                <div id="sender-section" class="connection-section">
+                    <label>Sender Accounts</label>
+                    <div id="sender-list">
+                        <!-- Sender statuses will be dynamically added here -->
+                    </div>
+                    <button id="add-sender-btn" class="btn btn-secondary btn-sm" style="margin-top: 10px;">+ Add
+                        Sender</button>
+                </div>
+
+                <!-- Section 4: Known Bot IDs -->
+                <div class="form-group">
+                    <label for="tg-known-bots">Known Bot IDs to Ignore (comma-separated)</label>
+                    <textarea id="tg-known-bots" rows="2" placeholder="e.g., 12345678, 87654321"></textarea>
+                </div>
+            </div>
+            <div class="modal-footer">
+                <button id="tg-settings-cancel-btn" class="btn btn-secondary">Cancel</button>
+                <button id="tg-settings-save-btn" class="btn btn-primary">Save Settings</button>
+            </div>
+        </div>
+    </div>
+
+
+    <!-- MODAL 2: The Reusable Interactive Login Wizard -->
+    <div class="modal-overlay" id="telegram-login-modal">
+        <div class="modal" style="max-width: 500px;">
+            <div class="modal-header">
+                <h2 id="tg-login-title">Connect Telegram Account</h2>
+            </div>
+            <div class="modal-body">
+                <p id="tg-login-instructions">Enter the credentials for the account.</p>
+
+                <!-- Step 1: Credentials -->
+                <div class="telegram-step active" id="tg-login-step-creds">
+                    <div class="form-group" id="tg-login-name-group" style="display: none;">
+                        <label for="tg-login-name">Unique Sender Name</label>
+                        <input type="text" id="tg-login-name" placeholder="e.g., sender1, marketing_bot">
+                    </div>
+                    <div class="form-group">
+                        <label for="tg-login-api-id">API ID</label>
+                        <input type="text" id="tg-login-api-id">
+                    </div>
+                    <div class="form-group">
+                        <label for="tg-login-api-hash">API Hash</label>
+                        <input type="text" id="tg-login-api-hash">
+                    </div>
+                    <div class="form-group">
+                        <label for="tg-login-phone">Phone Number</label>
+                        <input type="text" id="tg-login-phone" placeholder="+12223334444">
+                    </div>
+                </div>
+
+                <!-- Step 2: OTP Code -->
+                <div class="telegram-step" id="tg-login-step-code" style="display: none;">
+                    <div class="form-group">
+                        <label for="tg-login-code">Code from Telegram</label>
+                        <input type="text" id="tg-login-code">
+                    </div>
+                </div>
+
+                <!-- Step 3: 2FA Password -->
+                <div class="telegram-step" id="tg-login-step-password" style="display: none;">
+                    <div class="form-group">
+                        <label for="tg-login-password">2FA Password</label>
+                        <input type="password" id="tg-login-password">
+                    </div>
+                </div>
+
+                <p id="tg-login-message" class="message" style="min-height: 20px;"></p>
+            </div>
+            <div class="modal-footer">
+                <button id="tg-login-cancel-btn" class="btn btn-secondary">Cancel</button>
+                <button id="tg-login-next-btn" class="btn btn-primary">Next</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- The NEW Slack Settings Modal -->
+    <div class="modal-overlay" id="slack-settings-modal">
+        <div class="modal" style="max-width: 500px;">
+            <div class="modal-header">
+                <h2>Slack Settings</h2>
+                <button id="slack-close-btn" class="modal-close">&times;</button>
+            </div>
+            <div class="modal-body">
+                <p>Enter your Slack app credentials. These will be stored securely.</p>
+                <div class="form-group">
+                    <label for="slack-bot-token">Bot Token (starts with 'xoxb-')</label>
+                    <input type="password" id="slack-bot-token">
+                </div>
+                <div class="form-group">
+                    <label for="slack-app-token">App-Level Token (starts with 'xapp-')</label>
+                    <input type="password" id="slack-app-token">
+                </div>
+                <div class="form-group">
+                    <label for="slack-channel-id">Target Channel ID</label>
+                    <input type="text" id="slack-channel-id" placeholder="e.g., C012345XYZ">
+                </div>
+                <p id="slack-message" class="message"></p>
+            </div>
+            <div class="modal-footer">
+                <button id="slack-cancel-btn" class="btn btn-secondary">Cancel</button>
+                <button id="slack-save-btn" class="btn btn-primary">Save & Connect</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- The NEW Discord Settings Modal -->
+    <div class="modal-overlay" id="discord-settings-modal">
+        <div class="modal" style="max-width: 500px;">
+            <div class="modal-header">
+                <h2>Discord Settings</h2>
+                <button id="discord-close-btn" class="modal-close">&times;</button>
+            </div>
+            <div class="modal-body">
+                <p>Enter your Discord bot credentials. These will be stored securely.</p>
+                <div class="form-group">
+                    <label for="discord-bot-token">Bot Token</label>
+                    <input type="password" id="discord-bot-token">
+                </div>
+                <div class="form-group">
+                    <label for="discord-channel-id">Target Channel ID</label>
+                    <input type="text" id="discord-channel-id" placeholder="e.g., 1098765432109876543">
+                </div>
+                <p id="discord-message" class="message"></p>
+            </div>
+            <div class="modal-footer">
+                <button id="discord-cancel-btn" class="btn btn-secondary">Cancel</button>
+                <button id="discord-save-btn" class="btn btn-primary">Save & Connect</button>
+            </div>
+        </div>
+    </div>
+    <!-- The NEW Bot Configuration Modal -->
+    <div class="modal-overlay" id="bot-config-modal">
+        <div class="modal" style="max-width: 600px;">
+            <div class="modal-header">
+                <h2>Bot Configuration</h2>
+                <button id="config-close-btn" class="modal-close">&times;</button>
+            </div>
+            <div class="modal-body">
+                <p style="margin-bottom: 20px; color: var(--text-medium);">
+                    Configure bot behavior and connect the necessary AI services. Keys that are already saved will appear as "****". To change a key, simply enter a new one.
+                </p>
+                
+                <div class="section">
+                    <h3>AI Service Keys</h3>
+                    <div class="form-group">
+                        <label for="config-openai-key">OpenAI API Key (Required)</label>
+                        <input type="password" id="config-openai-key">
+                    </div>
+                    <div class="form-group">
+                        <label for="config-grok-key">Grok (X.AI) API Key (for real-time facts)</label>
+                        <input type="password" id="config-grok-key">
+                    </div>
+                    <div class="form-group">
+                        <label for="config-mem0-key">Mem0 API Key (for long-term memory)</label>
+                        <input type="password" id="config-mem0-key">
+                    </div>
+                </div>
+    
+                <div class="section">
+                    <h3>Behavior Settings</h3>
+                    <div class="form-group">
+                        <label for="config-triage-model">Triage Model</label>
+                        <select id="config-triage-model">
+                            <option value="gpt-3.5-turbo">GPT-3.5 Turbo</option>
+                            <option value="gpt-4">GPT-4</option>
+                            <option value="gpt-4-turbo-preview">GPT-4 Turbo</option>
+                        </select>
+                    </div>
+                    <div class="form-group">
+                        <label for="config-response-rate">Response Rate (0.1 to 1.0)</label>
+                        <input type="number" id="config-response-rate" min="0.1" max="1.0" step="0.1">
+                    </div>
+                    <div class="form-group">
+                        <label for="config-initiate-hours">Topic Initiation (Hours)</label>
+                        <input type="number" id="config-initiate-hours" min="1" step="1">
+                    </div>
+                    <div class="form-group">
+                        <label for="config-context-messages">Conversation Context (Messages)</label>
+                        <input type="number" id="config-context-messages" min="1" max="20" step="1">
+                    </div>
+                </div>
+                <p id="bot-config-message" class="message"></p>
+            </div>
+            <div class="modal-footer">
+                <button id="config-cancel-btn" class="btn btn-secondary">Cancel</button>
+                <button id="config-save-btn" class="btn btn-primary">Save Configuration</button>
+            </div>
+        </div>
+    </div>
+
+
+
     <!-- This is the pop-up notification element -->
     <div id="notification"></div>
+
 
 
     <script>
@@ -750,9 +1011,10 @@
 
             // --- STATE MANAGEMENT ---
             let authToken = null;
-            let currentUser = null;
             let activeTeam = [];
             let editingPersonaId = null;
+            let telegramSettings = {};
+            let tgLoginState = {};
 
             // --- DOM ELEMENTS ---
             const loginScreen = document.getElementById('login-screen');
@@ -765,85 +1027,93 @@
             const authMessage = document.getElementById('auth-message');
             const userInfo = document.getElementById('user-info');
             const generateBtn = document.getElementById('generate-btn');
-            const apiKeyModal = document.getElementById('api-key-modal');
-            const saveApiKeyBtn = document.getElementById('save-api-key-btn');
-            const apiKeyInput = document.getElementById('openai-api-key');
-            const apiKeyMessage = document.getElementById('api-key-message');
             const loadingOverlay = document.getElementById('loading-overlay');
             const notification = document.getElementById('notification');
-            const editPersonaModal = document.getElementById('edit-persona-modal');
-            const modalCloseBtn = document.getElementById('modal-close-btn');
-            const modalCancelBtn = document.getElementById('modal-cancel-btn');
-            const modalSaveBtn = document.getElementById('modal-save-btn');
-            const modalTabsContainer = document.querySelector('.modal-tabs');
             const deployBtn = document.getElementById('deploy-btn');
             const startBotBtn = document.getElementById('start-bot-btn');
             const stopBotBtn = document.getElementById('stop-bot-btn');
             const liveStatusIndicator = document.getElementById('live-status-indicator');
-            const telegramModal = document.getElementById('telegram-modal');
-            const telegramCancelBtn = document.getElementById('telegram-cancel-btn');
-            const telegramNextBtn = document.getElementById('telegram-next-btn');
+
+            const apiKeyModal = document.getElementById('api-key-modal');
+            const saveApiKeyBtn = document.getElementById('save-api-key-btn');
+            const apiKeyInput = document.getElementById('openai-api-key');
+            const apiKeyMessage = document.getElementById('api-key-message');
+
+            const editPersonaModal = document.getElementById('edit-persona-modal');
+            const modalCloseBtn = document.getElementById('modal-close-btn');
+            const modalCancelBtn = document.getElementById('modal-cancel-btn');
+            const modalSaveBtn = document.getElementById('modal-save-btn');
+            const modalTabsContainer = document.querySelector('#edit-persona-modal .modal-tabs');
+
             const connectionsModal = document.getElementById('connections-modal');
             const connectionsCloseBtn = document.getElementById('connections-close-btn');
             const connectionsCancelBtn = document.getElementById('connections-cancel-btn');
             const connectionsStartBtn = document.getElementById('connections-start-btn');
             const connectionsList = document.getElementById('connections-list');
 
+            const telegramSettingsModal = document.getElementById('telegram-settings-modal');
+            const tgSettingsCloseBtn = document.getElementById('tg-settings-close-btn');
+            const tgSettingsCancelBtn = document.getElementById('tg-settings-cancel-btn');
+            const tgSettingsSaveBtn = document.getElementById('tg-settings-save-btn');
 
-            // --- Placeholder ---
+            const telegramLoginModal = document.getElementById('telegram-login-modal');
+            const tgLoginTitle = document.getElementById('tg-login-title');
+            const tgLoginInstructions = document.getElementById('tg-login-instructions');
+            const tgLoginNameGroup = document.getElementById('tg-login-name-group');
+            const tgLoginNameInput = document.getElementById('tg-login-name');
+            const tgLoginApiIdInput = document.getElementById('tg-login-api-id');
+            const tgLoginApiHashInput = document.getElementById('tg-login-api-hash');
+            const tgLoginPhoneInput = document.getElementById('tg-login-phone');
+            const tgLoginCodeInput = document.getElementById('tg-login-code');
+            const tgLoginPasswordInput = document.getElementById('tg-login-password');
+            const tgLoginMessage = document.getElementById('tg-login-message');
+            const tgLoginCancelBtn = document.getElementById('tg-login-cancel-btn');
+            const tgLoginNextBtn = document.getElementById('tg-login-next-btn');
+            const tgLoginStepCreds = document.getElementById('tg-login-step-creds');
+            const tgLoginStepCode = document.getElementById('tg-login-step-code');
+            const tgLoginStepPassword = document.getElementById('tg-login-step-password');
 
-            // Add this new function
-            function handleConnectPlatform(platform) {
-                // This is where the specific connection wizards will be triggered
-                showNotification(`Connect flow for ${platform} has not been implemented yet.`, 'info');
-                if (platform === 'telegram') {
-                    // In the future, this would call showTelegramModal(true);
-                }
-            }     
-            
+            const slackSettingsModal = document.getElementById('slack-settings-modal');
+            const slackCloseBtn = document.getElementById('slack-close-btn');
+            const slackCancelBtn = document.getElementById('slack-cancel-btn');
+            const slackSaveBtn = document.getElementById('slack-save-btn');
+            const slackBotTokenInput = document.getElementById('slack-bot-token');
+            const slackAppTokenInput = document.getElementById('slack-app-token');
+            const slackChannelIdInput = document.getElementById('slack-channel-id');
+            const slackMessage = document.getElementById('slack-message');
+
+            const discordSettingsModal = document.getElementById('discord-settings-modal');
+            const discordCloseBtn = document.getElementById('discord-close-btn');
+            const discordCancelBtn = document.getElementById('discord-cancel-btn');
+            const discordSaveBtn = document.getElementById('discord-save-btn');
+            const discordBotTokenInput = document.getElementById('discord-bot-token');
+            const discordChannelIdInput = document.getElementById('discord-channel-id');
+            const discordMessage = document.getElementById('discord-message');
+            const botConfigModal = document.getElementById('bot-config-modal');
+            const configCloseBtn = document.getElementById('config-close-btn');
+            const configCancelBtn = document.getElementById('config-cancel-btn');
+            const configSaveBtn = document.getElementById('config-save-btn');
+
             // --- API HELPER ---
-
-            // In your <script> tag
-
             async function apiRequest(endpoint, method, body = null) {
                 const headers = { 'Content-Type': 'application/json' };
-                if (authToken) {
-                    headers['Authorization'] = `Bearer ${authToken}`;
-                }
-                const config = { method, headers };
-                if (body) {
-                    config.body = JSON.stringify(body);
-                }
-
+                if (authToken) headers['Authorization'] = `Bearer ${authToken}`;
+                const config = { method, headers, body: body ? JSON.stringify(body) : null };
                 try {
                     const response = await fetch(`${API_BASE_URL}${endpoint}`, config);
-                    // We get the data regardless of success to parse the error message
                     const data = await response.json();
-
                     if (!response.ok) {
-                        // --- THIS IS THE NEW, SMARTER ERROR HANDLING ---
-                        let errorMessage = 'An unknown API error occurred.';
-                        if (data && data.detail) {
-                            // If the detail is a simple string, use it.
-                            if (typeof data.detail === 'string') {
-                                errorMessage = data.detail;
-                            } else {
-                                // If it's a complex object (like a Pydantic validation error),
-                                // convert it to a readable string.
-                                errorMessage = JSON.stringify(data.detail);
-                            }
-                        }
-                        throw new Error(errorMessage);
+                        let errorMessage = data.detail || 'An unknown API error occurred.';
+                        throw new Error(typeof errorMessage === 'string' ? errorMessage : JSON.stringify(errorMessage));
                     }
                     return data;
                 } catch (error) {
-                    // This will now catch both network errors and our custom API errors
                     console.error(`API Error on ${method} ${endpoint}:`, error);
-                    throw error; // Re-throw the error so the calling function can handle it
+                    throw error;
                 }
             }
 
-            // --- AUTHENTICATION LOGIC ---
+            // --- AUTH & PAGE LOGIC ---
             async function handleLogin() {
                 clearMessage();
                 const email = emailInput.value.trim();
@@ -876,60 +1146,73 @@
                 localStorage.removeItem('authToken');
                 localStorage.removeItem('currentUserEmail');
                 authToken = null;
-                currentUser = null;
                 showScreen('login-screen');
             }
 
             // --- UI & STATE HELPERS ---
             function setAuthState(token, email) {
                 authToken = token;
-                currentUser = { email };
                 localStorage.setItem('authToken', token);
                 localStorage.setItem('currentUserEmail', email);
-                userInfo.textContent = `Logged in as: ${email}`;
+                if (userInfo) userInfo.textContent = `Logged in as: ${email}`;
             }
-            function showTelegramModal(shouldShow) {
-                if (!telegramModal) return;
-                telegramModal.style.display = shouldShow ? 'flex' : 'none';
-                // Reset to step 1 every time it's opened
-                telegramModal.querySelectorAll('.telegram-step').forEach(step => step.style.display = 'none');
-                document.getElementById('telegram-step-1').style.display = 'block';
-                document.getElementById('telegram-instructions').textContent = 'Please provide your Telegram API credentials and phone number.';
-                document.getElementById('telegram-message').textContent = '';
+            function showBotConfigModal(shouldShow) {
+                if (botConfigModal) botConfigModal.style.display = shouldShow ? 'flex' : 'none';
             }
 
             function showScreen(screenId) {
                 document.querySelectorAll('.screen').forEach(s => s.classList.remove('active'));
                 const screen = document.getElementById(screenId);
-                screen.classList.add('active');
+                if (screen) screen.classList.add('active');
                 if (screenId === 'dashboard-screen') {
-                    loadUserPersonas();
+                    loadInitialData();
+                }
+            }
+
+            async function loadInitialData() {
+                showNotification("Loading your configuration...", 'info');
+                try {
+                    const config = await apiRequest('/api/config', 'GET');
+                    activeTeam = config.draftTeam || [];
+                    updateLiveStatus(config.isActive || false);
+                    renderActiveTeam();
+                    showNotification("Configuration loaded!", 'success');
+                } catch (error) {
+                    showNotification(`Could not load config: ${error.message}`, 'error');
+                    activeTeam = [];
+                    updateLiveStatus(false);
+                    renderActiveTeam();
+                }
+            }
+
+            function updateLiveStatus(isActive) {
+                if (!liveStatusIndicator) return;
+                const text = liveStatusIndicator.querySelector('.status-text');
+                if (isActive) {
+                    liveStatusIndicator.className = 'status-indicator running';
+                    text.textContent = 'Running';
+                } else {
+                    liveStatusIndicator.className = 'status-indicator stopped';
+                    text.textContent = 'Stopped';
                 }
             }
 
             function showMessage(message, type = 'info') {
-                authMessage.textContent = message;
-                authMessage.className = type;
+                if (authMessage) {
+                    authMessage.textContent = message;
+                    authMessage.className = `message ${type}`;
+                }
             }
 
             function clearMessage() {
-                authMessage.textContent = '';
-                authMessage.className = '';
+                if (authMessage) {
+                    authMessage.textContent = '';
+                    authMessage.className = 'message';
+                }
             }
-            
+
             function showLoader(shouldShow) {
                 if (loadingOverlay) loadingOverlay.style.display = shouldShow ? 'flex' : 'none';
-            }
-
-            function showApiKeyModal(shouldShow) {
-                apiKeyModal.style.display = shouldShow ? 'flex' : 'none';
-                apiKeyMessage.textContent = '';
-                apiKeyInput.value = '';
-            }
-
-            function showApiKeyMessage(message, type = 'error') {
-                apiKeyMessage.textContent = message;
-                apiKeyMessage.className = type;
             }
 
             function showNotification(message, type = 'success') {
@@ -940,6 +1223,17 @@
                 setTimeout(() => {
                     notification.classList.remove('show');
                 }, 3000);
+            }
+
+            function showApiKeyModal(shouldShow) {
+                if (apiKeyModal) apiKeyModal.style.display = shouldShow ? 'flex' : 'none';
+            }
+
+            function showApiKeyMessage(message, type = 'error') {
+                if (apiKeyMessage) {
+                    apiKeyMessage.textContent = message;
+                    apiKeyMessage.className = `message ${type}`;
+                }
             }
 
             function showEditModal(shouldShow) {
@@ -958,74 +1252,29 @@
                     }
                 });
             }
-            function updateLiveStatus(isActive) {
-                if (!liveStatusIndicator) return;
-                const dot = liveStatusIndicator.querySelector('.status-dot');
-                const text = liveStatusIndicator.querySelector('.status-text');
 
-                if (isActive) {
-                    liveStatusIndicator.className = 'status-indicator running';
-                    text.textContent = 'Running';
-                } else {
-                    liveStatusIndicator.className = 'status-indicator stopped';
-                    text.textContent = 'Stopped';
-                }
-            }
-            function renderConnectionsList(statuses) {
-                connectionsList.innerHTML = ''; // Clear previous list
-                if (!statuses) return;
-
-                statuses.forEach(status => {
-                    const item = document.createElement('div');
-                    item.className = 'connection-item';
-
-                    const isConnected = status.isConnected;
-                    const platform = status.platform;
-                    
-                    item.innerHTML = `
-                        <input type="checkbox" id="select-${platform}" data-platform="${platform}" ${!isConnected ? 'disabled' : ''} ${status.isActiveNow ? 'checked' : ''}>
-                        <label for="select-${platform}" style="${!isConnected ? 'color: var(--text-light);' : ''}">${platform.charAt(0).toUpperCase() + platform.slice(1)}</label>
-                        <span class="status-badge ${isConnected ? 'connected' : 'disconnected'}">${isConnected ? 'Connected' : 'Not Connected'}</span>
-                        <button class="btn btn-secondary btn-sm js-connect-btn" data-platform="${platform}">
-                            ${isConnected ? 'Settings' : 'Connect'}
-                        </button>
-                    `;
-                    connectionsList.appendChild(item);
-                });
-
-                // Add event listener for the new "Connect" buttons
-                connectionsList.querySelectorAll('.js-connect-btn').forEach(btn => {
-                    btn.addEventListener('click', () => handleConnectPlatform(btn.dataset.platform));
-                });
+            function showSlackModal(shouldShow) {
+                if (slackSettingsModal) slackSettingsModal.style.display = shouldShow ? 'flex' : 'none';
+                if (slackMessage) slackMessage.textContent = '';
             }
 
-            async function showConnectionsModal() {
-                connectionsModal.style.display = 'flex';
-                connectionsList.innerHTML = '<p>Loading connection statuses...</p>'; // Show loading state
-                
-                try {
-                    const statuses = await apiRequest('/api/connections', 'GET');
-                    renderConnectionsList(statuses);
-                } catch (error) {
-                    connectionsList.innerHTML = `<p style="color: var(--danger-color);">Could not load statuses: ${error.message}</p>`;
-                }
+            function showDiscordModal(shouldShow) {
+                if (discordSettingsModal) discordSettingsModal.style.display = shouldShow ? 'flex' : 'none';
+                if (discordMessage) discordMessage.textContent = '';
             }
 
-            // --- PERSONA DATA & RENDERING ---
+            // --- RENDER FUNCTIONS ---
             function renderActiveTeam() {
                 const grid = document.getElementById('persona-grid');
                 const message = document.getElementById('no-personas-message');
                 grid.innerHTML = '';
-
                 if (!activeTeam || activeTeam.length === 0) {
                     message.style.display = 'block';
                     grid.style.display = 'none';
                     return;
                 }
-
                 message.style.display = 'none';
                 grid.style.display = 'grid';
-
                 activeTeam.forEach((persona) => {
                     const card = document.createElement('div');
                     card.className = 'persona-card';
@@ -1046,85 +1295,68 @@
                     grid.appendChild(card);
                 });
             }
-            
-            async function loadUserPersonas() {
-                showNotification("Loading your draft team...", 'info');
-                try {
-                    // We're now fetching the entire personaConfig
-                    const config = await apiRequest('/api/config', 'GET'); // We will create this endpoint next
-                    activeTeam = config.draftTeam || [];
-                    updateLiveStatus(config.isActive || false);
-                    renderActiveTeam();
-                    showNotification("Configuration loaded successfully!", 'success');
-                } catch (error) {
-                    showNotification(`Could not load config: ${error.message}`, 'error');
-                    activeTeam = [];
-                    updateLiveStatus(false);
-                    renderActiveTeam();
-                }
-            }
 
-            // --- PERSONA GENERATION & EDITING ---
-
-            function handleStartBot() {
-                showConnectionsModal();
-            }
-
-            // Add this new function
-            async function handleSaveAndStart() {
-                const selectedPlatforms = [];
-                connectionsList.querySelectorAll('input[type="checkbox"]:checked').forEach(checkbox => {
-                    selectedPlatforms.push(checkbox.dataset.platform);
+                        // --- CORRECTED RENDER FUNCTION ---
+            function renderConnectionsList(statuses) {
+                connectionsList.innerHTML = '';
+                if (!statuses) return;
+                statuses.forEach(status => {
+                    const item = document.createElement('div');
+                    item.className = 'connection-item';
+                    const isConnected = status.isConnected;
+                    const platform = status.platform;
+                    
+                    // The core fix is in the 'disabled' logic on the next line
+                    item.innerHTML = `
+                        <input type="checkbox" id="select-${platform}" data-platform="${platform}" ${(!isConnected && !status.isActiveNow) ? 'disabled' : ''} ${status.isActiveNow ? 'checked' : ''}>
+                        <label for="select-${platform}" style="${!isConnected ? 'color: var(--text-light);' : ''}">${platform.charAt(0).toUpperCase() + platform.slice(1)}</label>
+                        <span class="status-badge ${isConnected ? 'connected' : 'disconnected'}">${isConnected ? 'Connected' : 'Not Connected'}</span>
+                        <button class="btn btn-secondary btn-sm js-connect-btn" data-platform="${platform}">${isConnected ? 'Settings' : 'Connect'}</button>
+                    `;
+                    connectionsList.appendChild(item);
                 });
+                connectionsList.querySelectorAll('.js-connect-btn').forEach(btn => {
+                    btn.addEventListener('click', () => handleConnectPlatform(btn.dataset.platform));
+                });
+            }
 
-                if (selectedPlatforms.length === 0) {
-                    showNotification("Please select at least one connected platform to start.", 'error');
-                    return;
-                }
-
-                connectionsStartBtn.disabled = true;
-                connectionsStartBtn.textContent = 'Starting...';
-
+            // --- MAIN WORKFLOW HANDLERS ---
+            async function showConnectionsModal() {
+                connectionsModal.style.display = 'flex';
+                connectionsList.innerHTML = '<p>Loading connection statuses...</p>';
                 try {
-                    const result = await apiRequest('/api/start', 'POST', { platforms: selectedPlatforms });
-                    showNotification(result.message, 'success');
-                    updateLiveStatus(true);
-                    connectionsModal.style.display = 'none'; // Close modal on success
+                    const statuses = await apiRequest('/api/connections', 'GET');
+                    renderConnectionsList(statuses);
                 } catch (error) {
-                    showNotification(`Start Failed: ${error.message}`, 'error');
-                } finally {
-                    connectionsStartBtn.disabled = false;
-                    connectionsStartBtn.textContent = 'Save and Start Bot';
+                    connectionsList.innerHTML = `<p style="color: var(--danger-color);">Could not load statuses: ${error.message}</p>`;
                 }
             }
 
-            async function handleStopBot() {
-                stopBotBtn.disabled = true;
-                stopBotBtn.textContent = 'Stopping...';
-                try {
-                    const result = await apiRequest('/api/stop', 'POST');
-                    showNotification(result.message, 'success');
-                    updateLiveStatus(false); // Update the UI immediately
-                } catch (error) {
-                    showNotification(`Stop Failed: ${error.message}`, 'error');
-                } finally {
-                    stopBotBtn.disabled = false;
-                    stopBotBtn.textContent = 'Stop Bot';
-                }
-            }
             async function handleGenerate() {
                 try {
-                    showNotification("Checking credentials...", 'info');
                     const status = await apiRequest('/api/connections/status', 'GET');
                     if (!status.has_openai_key) {
-                        showNotification("OpenAI key is required.", 'info');
                         showApiKeyModal(true);
                     } else {
-                        showNotification("Credentials found. Starting generation...", 'info');
                         await proceedToPersonaGeneration();
                     }
                 } catch (error) {
                     showNotification(`Error: ${error.message}`, 'error');
+                }
+            }
+
+            async function proceedToPersonaGeneration() {
+                const goal = document.getElementById('goal-prompt').value;
+                if (!goal.trim()) return showNotification("Please describe your goal first.", 'error');
+                showLoader(true);
+                try {
+                    const result = await apiRequest('/api/personas/generate', 'POST', { goal });
+                    showNotification(result.message, 'success');
+                    await loadInitialData();
+                } catch (error) {
+                    showNotification(`Error: ${error.message}`, 'error');
+                } finally {
+                    showLoader(false);
                 }
             }
 
@@ -1148,164 +1380,534 @@
                 }
             }
 
-            async function proceedToPersonaGeneration() {
-                const goal = document.getElementById('goal-prompt').value;
-                if (!goal.trim()) return showNotification("Please describe your goal first.", 'error');
-                
-                showLoader(true);
-                try {
-                    const result = await apiRequest('/api/personas/generate', 'POST', { goal });
-                    showNotification(result.message, 'success');
-                    await loadUserPersonas();
-                } catch (error) {
-                    showNotification(`Error: ${error.message}`, 'error');
-                } finally {
-                    showLoader(false);
-                }
-            }
-            
-            function handleEditClick(personaId) {
-                const persona = activeTeam.find(p => p.id === personaId);
-                if (!persona) return;
-                editingPersonaId = personaId;
-
-                document.getElementById('modal-title').innerText = `Edit: ${persona.persona_name || ''}`;
-                document.getElementById('edit-persona_name').value = persona.persona_name || '';
-                document.getElementById('edit-role').value = persona.role || '';
-                document.getElementById('edit-tagline').value = persona.tagline || '';
-                document.getElementById('edit-key_traits').value = (persona.key_traits || []).join(', ');
-                document.getElementById('edit-expertise').value = (persona.expertise || []).join(', ');
-                
-                const voice = persona.signature_voice || {};
-                document.getElementById('edit-tone').value = voice.tone || '';
-                document.getElementById('edit-style').value = voice.style || '';
-                document.getElementById('edit-allow_emojis').checked = persona.allow_emojis || false;
-                
-                document.getElementById('edit-interaction_rules').value = (persona.interaction_rules || []).join('\n');
-
-                showEditModal(true);
-            }
-
-            async function handleSavePersona() {
-                if (!editingPersonaId) return;
-                const personaIndex = activeTeam.findIndex(p => p.id === editingPersonaId);
-                if (personaIndex === -1) return;
-
-                const updatedPersona = activeTeam[personaIndex];
-                updatedPersona.persona_name = document.getElementById('edit-persona_name').value;
-                updatedPersona.role = document.getElementById('edit-role').value;
-                updatedPersona.tagline = document.getElementById('edit-tagline').value;
-                updatedPersona.key_traits = document.getElementById('edit-key_traits').value.split(',').map(s => s.trim()).filter(Boolean);
-                updatedPersona.expertise = document.getElementById('edit-expertise').value.split(',').map(s => s.trim()).filter(Boolean);
-                
-                updatedPersona.signature_voice = updatedPersona.signature_voice || {};
-                updatedPersona.signature_voice.tone = document.getElementById('edit-tone').value;
-                updatedPersona.signature_voice.style = document.getElementById('edit-style').value;
-                updatedPersona.allow_emojis = document.getElementById('edit-allow_emojis').checked;
-                
-                updatedPersona.interaction_rules = document.getElementById('edit-interaction_rules').value.split('\n').filter(Boolean);
-
-                activeTeam[personaIndex] = updatedPersona;
-                
-                try {
-                    showNotification("Saving changes...", 'info');
-                    await apiRequest('/api/draft', 'PUT', { activeTeam: activeTeam });
-                    showNotification("Draft saved successfully!", 'success');
-                } catch (error) {
-                    showNotification(`Save failed: ${error.message}`, 'error');
-                } finally {
-                    renderActiveTeam();
-                    showEditModal(false);
-                    editingPersonaId = null;
-                }
-            }
-
-            async function handleDeleteClick(personaId) {
-                const personaName = activeTeam.find(p => p.id === personaId)?.persona_name || 'this persona';
-                if (!confirm(`Are you sure you want to delete ${personaName}?`)) return;
-
-                activeTeam = activeTeam.filter(p => p.id !== personaId);
-
-                try {
-                    showNotification("Deleting persona...", 'info');
-                    await apiRequest('/api/draft', 'PUT', { activeTeam: activeTeam });
-                    showNotification("Persona deleted.", 'success');
-                } catch (error) {
-                    showNotification(`Delete failed: ${error.message}`, 'error');
-                } finally {
-                    renderActiveTeam();
-                }
-            }
-            // In your <script> tag
-
             async function handleDeploy() {
-                if (!activeTeam || activeTeam.length === 0) {
-                    showNotification("You cannot deploy an empty team.", 'error');
-                    return;
-                }
-
-                // Show a confirmation dialog to the user
-                if (confirm(`Are you sure you want to deploy these ${activeTeam.length} personas? This will overwrite your current live configuration.`)) {
-                    
-                    const originalBtnText = deployBtn.innerHTML;
+                if (!activeTeam || activeTeam.length === 0) return showNotification("You cannot deploy an empty team.", 'error');
+                if (confirm(`This will deploy your ${activeTeam.length} personas and open the final configuration. Continue?`)) {
                     deployBtn.disabled = true;
                     deployBtn.innerHTML = 'Deploying...';
-                    showNotification("Deploying team to live...", 'info');
-
                     try {
+                        // First, deploy the team
                         const result = await apiRequest('/api/deploy', 'POST');
                         showNotification(result.message, 'success');
+                        
+                        // On success, open the Bot Configuration modal
+                        await loadAndShowBotConfigModal();
+
                     } catch (error) {
-                        // The API request function will now handle the error message formatting
                         showNotification(`Deployment Failed: ${error.message}`, 'error');
                     } finally {
                         deployBtn.disabled = false;
-                        deployBtn.innerHTML = originalBtnText;
+                        deployBtn.innerHTML = `<svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" fill="currentColor" viewBox="0 0 16 16"><path d="M15.854.146a.5.5 0 0 1 .11.54l-5.819 14.547a.75.75 0 0 1-1.329.124l-3.178-4.995L.643 7.184a.75.75 0 0 1 .124-1.33L15.314.037a.5.5 0 0 1 .54.11ZM6.636 10.07l2.761 4.338L14.13 2.576zm6.787-8.201L1.591 6.602l4.339 2.76z"/></svg> Deploy & Configure`; // Restore deploy button SVG/Text
                     }
                 }
             }
 
-            // --- INITIALIZATION ---
-            function initializeApp() {
-                const storedToken = localStorage.getItem('authToken');
-                const storedEmail = localStorage.getItem('currentUserEmail');
+            function handleStartBot() {
+                showConnectionsModal();
+            }
 
-                if (storedToken && storedEmail) {
-                    setAuthState(storedToken, storedEmail);
-                    showScreen('dashboard-screen');
+            async function handleStopBot() {
+                stopBotBtn.disabled = true;
+                stopBotBtn.textContent = 'Stopping...';
+                try {
+                    const result = await apiRequest('/api/stop', 'POST');
+                    showNotification(result.message, 'success');
+                    updateLiveStatus(false);
+                } catch (error) {
+                    showNotification(`Stop Failed: ${error.message}`, 'error');
+                } finally {
+                    stopBotBtn.disabled = false;
+                    stopBotBtn.textContent = 'Stop Bot';
+                }
+            }
+
+            async function handleSaveAndStart() {
+                const selectedPlatforms = Array.from(connectionsList.querySelectorAll('input[type="checkbox"]:checked')).map(cb => cb.dataset.platform);
+                if (selectedPlatforms.length === 0) return showNotification("Please select at least one connected platform to start.", 'error');
+                connectionsStartBtn.disabled = true;
+                connectionsStartBtn.textContent = 'Starting...';
+                try {
+                    const result = await apiRequest('/api/start', 'POST', { platforms: selectedPlatforms });
+                    showNotification(result.message, 'success');
+                    updateLiveStatus(true);
+                    connectionsModal.style.display = 'none';
+                } catch (error) {
+                    showNotification(`Start Failed: ${error.message}`, 'error');
+                } finally {
+                    connectionsStartBtn.disabled = false;
+                    connectionsStartBtn.textContent = 'Save and Start Bot';
+                }
+            }
+
+            function handleConnectPlatform(platform) {
+                if (platform === 'telegram') {
+                    // Only open the modal if it's not already visible.
+                    if (telegramSettingsModal.style.display !== 'flex') {
+                        showTelegramSettingsModal();
+                    }
+                } else if (platform === 'slack') {
+                    showSlackModal(true);
+                } else if (platform === 'discord') {
+                    showDiscordModal(true);
+                }
+            }
+
+            function handleEditClick(personaId) {
+                    const persona = activeTeam.find(p => p.id === personaId);
+                    if (!persona) return;
+                    editingPersonaId = personaId;
+                    document.getElementById('modal-title').innerText = `Edit: ${persona.persona_name || ''}`;
+                    document.getElementById('edit-persona_name').value = persona.persona_name || '';
+                    document.getElementById('edit-role').value = persona.role || '';
+                    document.getElementById('edit-tagline').value = persona.tagline || '';
+                    document.getElementById('edit-key_traits').value = (persona.key_traits || []).join(', ');
+                    document.getElementById('edit-expertise').value = (persona.expertise || []).join(', ');
+                    const voice = persona.signature_voice || {};
+                    document.getElementById('edit-tone').value = voice.tone || '';
+                    document.getElementById('edit-style').value = voice.style || '';
+                    document.getElementById('edit-allow_emojis').checked = persona.allow_emojis || false;
+                    document.getElementById('edit-interaction_rules').value = (persona.interaction_rules || []).join('\n');
+                    showEditModal(true);
+                }
+
+            async function handleSavePersona() {
+                    if (!editingPersonaId) return;
+                    const personaIndex = activeTeam.findIndex(p => p.id === editingPersonaId);
+                    if (personaIndex === -1) return;
+                    const updatedPersona = { ...activeTeam[personaIndex] };
+                    updatedPersona.persona_name = document.getElementById('edit-persona_name').value;
+                    updatedPersona.role = document.getElementById('edit-role').value;
+                    updatedPersona.tagline = document.getElementById('edit-tagline').value;
+                    updatedPersona.key_traits = document.getElementById('edit-key_traits').value.split(',').map(s => s.trim()).filter(Boolean);
+                    updatedPersona.expertise = document.getElementById('edit-expertise').value.split(',').map(s => s.trim()).filter(Boolean);
+                    updatedPersona.signature_voice = {
+                        tone: document.getElementById('edit-tone').value,
+                        style: document.getElementById('edit-style').value,
+                    };
+                    updatedPersona.allow_emojis = document.getElementById('edit-allow_emojis').checked;
+                    updatedPersona.interaction_rules = document.getElementById('edit-interaction_rules').value.split('\n').filter(Boolean);
+                    activeTeam[personaIndex] = updatedPersona;
+                    try {
+                        showNotification("Saving changes...", 'info');
+                        await apiRequest('/api/draft', 'PUT', { activeTeam: activeTeam });
+                        showNotification("Draft saved successfully!", 'success');
+                    } catch (error) {
+                        showNotification(`Save failed: ${error.message}`, 'error');
+                    } finally {
+                        renderActiveTeam();
+                        showEditModal(false);
+                        editingPersonaId = null;
+                    }
+                }
+
+            async function handleDeleteClick(personaId) {
+                    const personaName = activeTeam.find(p => p.id === personaId)?.persona_name || 'this persona';
+                    if (!confirm(`Are you sure you want to delete ${personaName}?`)) return;
+                    activeTeam = activeTeam.filter(p => p.id !== personaId);
+                    try {
+                        showNotification("Deleting persona...", 'info');
+                        await apiRequest('/api/draft', 'PUT', { activeTeam: activeTeam });
+                        showNotification("Persona deleted.", 'success');
+                    } catch (error) {
+                        showNotification(`Delete failed: ${error.message}`, 'error');
+                    } finally {
+                        renderActiveTeam();
+                    }
+                }
+
+            // --- BOT CONFIGURATION LOGIC ---
+            function showBotConfigModal(shouldShow) {
+            if (botConfigModal) botConfigModal.style.display = shouldShow ? 'flex' : 'none';
+            }
+
+            async function loadAndShowBotConfigModal() {
+                showBotConfigModal(true);
+                const msg = document.getElementById('bot-config-message');
+                msg.textContent = 'Loading existing configuration...';
+                try {
+                    const [connections, config] = await Promise.all([
+                        apiRequest('/api/connections/all', 'GET'),
+                        apiRequest('/api/config', 'GET')
+                    ]);
+                    
+                    // If a key exists, show '********' as a placeholder.
+                    document.getElementById('config-openai-key').placeholder = connections.openai?.encrypted_key ? '********' : '';
+                    document.getElementById('config-grok-key').placeholder = connections.grok?.encrypted_key ? '********' : '';
+                    document.getElementById('config-mem0-key').placeholder = connections.mem0?.encrypted_key ? '********' : '';
+                    
+                    // Clear the input fields so the placeholder shows
+                    document.getElementById('config-openai-key').value = '';
+                    document.getElementById('config-grok-key').value = '';
+                    document.getElementById('config-mem0-key').value = '';
+
+                    document.getElementById('config-triage-model').value = config.triage_model || 'gpt-3.5-turbo';
+                    document.getElementById('config-response-rate').value = config.random_response_rate || 1.0;
+                    document.getElementById('config-initiate-hours').value = config.min_initiate_hours || 3;
+                    document.getElementById('config-context-messages').value = config.response_context_messages || 6;
+                    
+                    msg.textContent = '';
+                } catch (error) {
+                    msg.textContent = `Could not load configuration: ${error.message}`;
+                    msg.className = 'message error';
+                }
+            }
+
+            async function handleSaveBotConfig() {
+                configSaveBtn.disabled = true;
+                configSaveBtn.textContent = 'Saving...';
+                const msg = document.getElementById('bot-config-message');
+                msg.textContent = '';
+                
+                try {
+                    const keysPayload = {};
+                    const openaiKey = document.getElementById('config-openai-key').value.trim();
+                    const grokKey = document.getElementById('config-grok-key').value.trim();
+                    const mem0Key = document.getElementById('config-mem0-key').value.trim();
+
+                    // Only include keys in the payload if the user entered a new value
+                    if (openaiKey) keysPayload.openai = { key: openaiKey };
+                    if (grokKey) keysPayload.grok = { api_key: grokKey };
+                    if (mem0Key) keysPayload.mem0 = { api_key: mem0Key };
+
+                    const behaviorPayload = {
+                        triage_model: document.getElementById('config-triage-model').value,
+                        random_response_rate: parseFloat(document.getElementById('config-response-rate').value),
+                        min_initiate_hours: parseInt(document.getElementById('config-initiate-hours').value),
+                        response_context_messages: parseInt(document.getElementById('config-context-messages').value)
+                    };
+
+                    const promises = [];
+                    // Only send the API request if there are new keys to save
+                    if (Object.keys(keysPayload).length > 0) {
+                        promises.push(apiRequest('/api/connections/keys', 'PUT', keysPayload));
+                    }
+                    promises.push(apiRequest('/api/config/behavior', 'PUT', behaviorPayload));
+
+                    await Promise.all(promises);
+
+                    showNotification("Bot configuration saved successfully!", 'success');
+                    showBotConfigModal(false);
+
+                } catch (error) {
+                    msg.textContent = `Save failed: ${error.message}`;
+                    msg.className = 'message error';
+                } finally {
+                    configSaveBtn.disabled = false;
+                    configSaveBtn.textContent = 'Save Configuration';
+                }
+            }
+                
+
+            // --- TELEGRAM WIZARD LOGIC ---
+            async function showTelegramSettingsModal(shouldShow = true) {
+                if (!telegramSettingsModal) return;
+
+                if (shouldShow) {
+                    telegramSettingsModal.style.display = 'flex';
+                    const modalBody = document.querySelector('#telegram-settings-modal .modal-body');
+                    modalBody.innerHTML = '<p>Loading settings...</p>';
+                    try {
+                        // Fetch the latest settings every time the modal is opened
+                        telegramSettings = await apiRequest('/api/connections/telegram', 'GET');
+                        renderTelegramSettings();
+                    } catch (error) {
+                        showNotification(`Could not load Telegram settings: ${error.message}`, 'error');
+                        modalBody.innerHTML = `<p style="color: var(--danger-color);">Error loading settings. Please try again.</p>`;
+                    }
                 } else {
-                    showScreen('login-screen');
+                    // This is the crucial 'hide' logic that was missing
+                    telegramSettingsModal.style.display = 'none';
                 }
-
-                // Attach ALL event listeners
-                loginBtn.addEventListener('click', handleLogin);
-                registerBtn.addEventListener('click', handleRegister);
-                logoutBtn.addEventListener('click', handleLogout);
-                generateBtn.addEventListener('click', handleGenerate);
-                saveApiKeyBtn.addEventListener('click', handleSaveApiKey);
-                modalCloseBtn.addEventListener('click', () => showEditModal(false));
-                modalCancelBtn.addEventListener('click', () => showEditModal(false));
-                modalSaveBtn.addEventListener('click', handleSavePersona);
-                modalTabsContainer.addEventListener('click', (event) => {
-                    if (event.target.matches('.tab-button')) {
-                        const tabName = event.target.dataset.tab;
-                        showTab(tabName);
-                    }
-                });
-                deployBtn.addEventListener('click', handleDeploy);
-                startBotBtn.addEventListener('click', handleStartBot);
-                stopBotBtn.addEventListener('click', handleStopBot);
-                telegramCancelBtn.addEventListener('click', () => showTelegramModal(false));
-                connectionsCloseBtn.addEventListener('click', () => connectionsModal.style.display = 'none');
-                connectionsCancelBtn.addEventListener('click', () => connectionsModal.style.display = 'none');
-                connectionsStartBtn.addEventListener('click', handleSaveAndStart);
-
-
             }
 
-            initializeApp();
+            function renderTelegramSettings() {
+                    const body = document.querySelector('#telegram-settings-modal .modal-body');
+                    body.innerHTML = `
+                    <div class="form-group"><label for="tg-group-id">Target Group ID</label><input type="text" id="tg-group-id"></div>
+                    <div class="connection-section"><label>Listener (Ingestor) Account</label><div id="ingestor-status" class="connection-status"></div></div>
+                    <div class="connection-section"><label>Sender Accounts</label><div id="sender-list"></div><button id="add-sender-btn" class="btn btn-secondary btn-sm" style="margin-top: 10px;">+ Add Sender</button></div>
+                    <div class="form-group"><label for="tg-known-bots">Known Bot IDs to Ignore (comma-separated)</label><textarea id="tg-known-bots" rows="2"></textarea></div>
+                `;
+                    document.getElementById('tg-group-id').value = telegramSettings.telegram_group_id || '';
+                    document.getElementById('tg-known-bots').value = (telegramSettings.known_bot_ids || []).join(', ');
+
+                    const ingestorStatusDiv = document.getElementById('ingestor-status');
+                    if (telegramSettings.ingestor_config) {
+                        ingestorStatusDiv.innerHTML = `<span class="status-badge connected">Connected</span><button class="btn btn-danger btn-sm js-remove-tg-account" data-type="ingestor">Remove</button>`;
+                    } else {
+                        ingestorStatusDiv.innerHTML = `<span class="status-badge disconnected">Not Connected</span><button class="btn btn-secondary btn-sm js-connect-tg-account" data-type="ingestor">Connect</button>`;
+                    }
+
+                    const senderListDiv = document.getElementById('sender-list');
+                    senderListDiv.innerHTML = '';
+                    const senders = telegramSettings.senders_config || {};
+                    for (const senderName in senders) {
+                        const senderDiv = document.createElement('div');
+                        senderDiv.className = 'connection-status';
+                        senderDiv.innerHTML = `<span>${senderName}</span><div><span class="status-badge connected">Connected</span><button class="btn btn-danger btn-sm js-remove-tg-account" data-type="sender" data-name="${senderName}">Remove</button></div>`;
+                        senderListDiv.appendChild(senderDiv);
+                    }
+
+                    document.querySelector('.js-connect-tg-account[data-type="ingestor"]').addEventListener('click', () => startTelegramLogin('ingestor'));
+                    document.getElementById('add-sender-btn').addEventListener('click', () => {
+                        const senderName = prompt("Enter a unique name for this sender account (e.g., sender1):");
+                        if (senderName && senderName.trim()) {
+                            startTelegramLogin('sender', senderName.trim());
+                        }
+                    });
+                    document.querySelectorAll('.js-remove-tg-account').forEach(btn => {
+                        btn.addEventListener('click', (e) => {
+                            const type = e.target.dataset.type;
+                            const name = e.target.dataset.name;
+                            if (type === 'ingestor') delete telegramSettings.ingestor_config;
+                            if (type === 'sender' && name) delete telegramSettings.senders_config[name];
+                            renderTelegramSettings();
+                        });
+                    });
+                }
+
+            function startTelegramLogin(type, name = null) {
+                    resetTelegramLoginWizard();
+                    tgLoginState = { type, name };
+                    tgLoginNameGroup.style.display = type === 'sender' ? 'block' : 'none';
+                    if (type === 'sender') {
+                        tgLoginTitle.textContent = `Connect Sender: ${name}`;
+                        tgLoginNameInput.value = name;
+                        tgLoginNameInput.disabled = true;
+                    } else {
+                        tgLoginTitle.textContent = 'Connect Listener (Ingestor) Account';
+                    }
+                    showTelegramLoginWizard(true);
+                }
+
+            async function handleTelegramLoginNext() {
+                    const currentStep = tgLoginState.step || 'creds';
+                    tgLoginNextBtn.disabled = true;
+                    tgLoginNextBtn.textContent = 'Connecting...';
+                    tgLoginMessage.textContent = '';
+                    try {
+                        let response;
+                        if (currentStep === 'creds') {
+                            const body = { api_id: tgLoginApiIdInput.value.trim(), api_hash: tgLoginApiHashInput.value.trim(), phone_number: tgLoginPhoneInput.value.trim() };
+                            if (!body.api_id || !body.api_hash || !body.phone_number) throw new Error("All fields are required.");
+                            response = await apiRequest('/api/connections/telegram/start_auth', 'POST', body);
+                        } else if (currentStep === 'code') {
+                            const code = tgLoginCodeInput.value.trim();
+                            if (!code) throw new Error("Code is required.");
+                            response = await apiRequest('/api/connections/telegram/submit_code', 'POST', { code });
+                        } else if (currentStep === 'password') {
+                            const password = tgLoginPasswordInput.value.trim();
+                            if (!password) throw new Error("Password is required.");
+                            response = await apiRequest('/api/connections/telegram/submit_password', 'POST', { password });
+                        }
+
+                        if (response.status === 'code_needed') {
+                            tgLoginState.step = 'code';
+                            setTelegramLoginWizardStep('code');
+                        } else if (response.status === 'password_needed') {
+                            tgLoginState.step = 'password';
+                            setTelegramLoginWizardStep('password');
+                        } else if (response.status === 'success') {
+                            showNotification(`Account connected! Save settings to persist.`, 'success');
+                            const { session_string_encrypted, api_id, api_hash } = response;
+                            const newAccountData = { session_string_encrypted, api_id, api_hash };
+                            if (tgLoginState.type === 'ingestor') {
+                                telegramSettings.ingestor_config = newAccountData;
+                            } else if (tgLoginState.type === 'sender') {
+                                telegramSettings.senders_config = telegramSettings.senders_config || {};
+                                telegramSettings.senders_config[tgLoginState.name] = newAccountData;
+                            }
+                            showTelegramLoginWizard(false);
+                            renderTelegramSettings();
+                        }
+                    } catch (error) {
+                        tgLoginMessage.textContent = `Error: ${error.message}`;
+                        tgLoginMessage.className = 'message error';
+                    } finally {
+                        tgLoginNextBtn.disabled = false;
+                        tgLoginNextBtn.textContent = 'Next';
+                    }
+                }
+
+            async function handleSaveTelegramSettings() {
+                    telegramSettings.telegram_group_id = document.getElementById('tg-group-id').value.trim();
+                    const knownBotsVal = document.getElementById('tg-known-bots').value.trim();
+                    telegramSettings.known_bot_ids = knownBotsVal ? knownBotsVal.split(',').map(id => id.trim()) : [];
+                    tgSettingsSaveBtn.disabled = true;
+                    tgSettingsSaveBtn.textContent = 'Saving...';
+                    try {
+                        await apiRequest('/api/connections/telegram', 'PUT', telegramSettings);
+                        showNotification("Telegram settings saved successfully!", 'success');
+                        showTelegramSettingsModal(false);
+                        await showConnectionsModal();
+                    } catch (error) {
+                        showNotification(`Save failed: ${error.message}`, 'error');
+                    } finally {
+                        tgSettingsSaveBtn.disabled = false;
+                        tgSettingsSaveBtn.textContent = 'Save Settings';
+                    }
+                }
+
+                function showTelegramLoginWizard(shouldShow) {
+                    if (telegramLoginModal) telegramLoginModal.style.display = shouldShow ? 'flex' : 'none';
+                }
+
+                function resetTelegramLoginWizard() {
+                    tgLoginState = {};
+                    [tgLoginNameInput, tgLoginApiIdInput, tgLoginApiHashInput, tgLoginPhoneInput, tgLoginCodeInput, tgLoginPasswordInput].forEach(input => input.value = '');
+                    tgLoginMessage.textContent = '';
+                    tgLoginMessage.className = 'message';
+                    tgLoginNextBtn.disabled = false;
+                    tgLoginNextBtn.textContent = 'Next';
+                    tgLoginStepCreds.style.display = 'block';
+                    tgLoginStepCode.style.display = 'none';
+                    tgLoginStepPassword.style.display = 'none';
+                }
+
+                function setTelegramLoginWizardStep(step) {
+                    tgLoginStepCreds.style.display = 'none';
+                    tgLoginStepCode.style.display = 'none';
+                    tgLoginStepPassword.style.display = 'none';
+                    if (step === 'code') {
+                        tgLoginStepCode.style.display = 'block';
+                        tgLoginInstructions.textContent = 'A login code has been sent to your Telegram account.';
+                    } else if (step === 'password') {
+                        tgLoginStepPassword.style.display = 'block';
+                        tgLoginInstructions.textContent = 'This account has 2FA enabled. Please enter your password.';
+                    }
+                }
+
+                // --- FIX FOR DISCORD & SLACK BUTTONS ---
+
+                async function handleSaveSlackSettings() {
+                    const botToken = slackBotTokenInput.value.trim();
+                    const appToken = slackAppTokenInput.value.trim();
+                    const channelId = slackChannelIdInput.value.trim();
+
+                    if (!botToken || !appToken || !channelId) {
+                        slackMessage.textContent = 'All fields are required.';
+                        slackMessage.className = 'message error';
+                        return;
+                    }
+
+                    slackSaveBtn.disabled = true;
+                    slackSaveBtn.textContent = 'Saving...';
+                    try {
+                        const body = {
+                            bot_token: botToken,
+                            app_token: appToken,
+                            channel_id: channelId
+                        };
+                        await apiRequest('/api/connections/slack', 'PUT', body);
+                        showNotification("Slack settings saved successfully!", 'success');
+                        showSlackModal(false);
+                        await showConnectionsModal(); // Refresh the connections list
+                    } catch (error) {
+                        slackMessage.textContent = `Save failed: ${error.message}`;
+                        slackMessage.className = 'message error';
+                    } finally {
+                        slackSaveBtn.disabled = false;
+                        slackSaveBtn.textContent = 'Save & Connect';
+                    }
+                }
+
+                async function handleSaveDiscordSettings() {
+                    const botToken = discordBotTokenInput.value.trim();
+                    const channelId = discordChannelIdInput.value.trim();
+
+                    if (!botToken || !channelId) {
+                        discordMessage.textContent = 'Both Bot Token and Channel ID are required.';
+                        discordMessage.className = 'message error';
+                        return;
+                    }
+
+                    discordSaveBtn.disabled = true;
+                    discordSaveBtn.textContent = 'Saving...';
+                    try {
+                        const body = {
+                            bot_token: botToken,
+                            channel_id: channelId
+                        };
+                        await apiRequest('/api/connections/discord', 'PUT', body);
+                        showNotification("Discord settings saved successfully!", 'success');
+                        showDiscordModal(false);
+                        await showConnectionsModal(); // Refresh the connections list
+                    } catch (error) {
+                        discordMessage.textContent = `Save failed: ${error.message}`;
+                        discordMessage.className = 'message error';
+                    } finally {
+                        discordSaveBtn.disabled = false;
+                        discordSaveBtn.textContent = 'Save & Connect';
+                    }
+                }
+
+                // --- INITIALIZATION ---
+                function initializeApp() {
+                    const storedToken = localStorage.getItem('authToken');
+                    const storedEmail = localStorage.getItem('currentUserEmail');
+
+                    if (storedToken && storedEmail) {
+                        setAuthState(storedToken, storedEmail);
+                        showScreen('dashboard-screen');
+                    } else {
+                        showScreen('login-screen');
+                    }
+
+                    // Attach ALL event listeners
+                    loginBtn.addEventListener('click', handleLogin);
+                    registerBtn.addEventListener('click', handleRegister);
+                    logoutBtn.addEventListener('click', handleLogout);
+                    generateBtn.addEventListener('click', handleGenerate);
+                    saveApiKeyBtn.addEventListener('click', handleSaveApiKey);
+                    modalCloseBtn.addEventListener('click', () => showEditModal(false));
+                    modalCancelBtn.addEventListener('click', () => showEditModal(false));
+                    modalSaveBtn.addEventListener('click', handleSavePersona);
+                    modalTabsContainer.addEventListener('click', (e) => {
+                        if (e.target.matches('.tab-button')) showTab(e.target.dataset.tab);
+                    });
+                    deployBtn.addEventListener('click', handleDeploy);
+                    startBotBtn.addEventListener('click', handleStartBot);
+                    stopBotBtn.addEventListener('click', handleStopBot);
+
+                    connectionsCloseBtn.addEventListener('click', () => connectionsModal.style.display = 'none');
+                    connectionsCancelBtn.addEventListener('click', () => connectionsModal.style.display = 'none');
+                    connectionsStartBtn.addEventListener('click', handleSaveAndStart);
+
+                    // --- THIS IS THE NEW, FIXED CODE FOR TELEGRAM BUTTONS ---
+                    tgSettingsCloseBtn.addEventListener('click', (e) => {
+                        e.stopPropagation(); // Stop the click from propagating
+                        showTelegramSettingsModal(false);
+                    });
+
+                    tgSettingsCancelBtn.addEventListener('click', (e) => {
+                        e.stopPropagation(); // Stop the click from propagating
+                        showTelegramSettingsModal(false);
+                    });
+
+                    tgSettingsSaveBtn.addEventListener('click', (e) => {
+                        e.stopPropagation(); // Stop the click from propagating BEFORE saving
+                        handleSaveTelegramSettings(); // Now, call the save function
+                    });
+
+                    tgLoginCancelBtn.addEventListener('click', () => showTelegramLoginWizard(false));
+                    tgLoginNextBtn.addEventListener('click', handleTelegramLoginNext);
+
+                    slackCloseBtn.addEventListener('click', () => showSlackModal(false));
+                    slackCancelBtn.addEventListener('click', () => showSlackModal(false));
+                    slackSaveBtn.addEventListener('click', handleSaveSlackSettings);
+
+                    discordCloseBtn.addEventListener('click', () => showDiscordModal(false));
+                    discordCancelBtn.addEventListener('click', () => showDiscordModal(false));
+                    discordSaveBtn.addEventListener('click', handleSaveDiscordSettings);
+                    configCloseBtn.addEventListener('click', () => showBotConfigModal(false));
+                    configCancelBtn.addEventListener('click', () => showBotConfigModal(false));
+                    configSaveBtn.addEventListener('click', handleSaveBotConfig);
+                }
+
+                initializeApp();
         });
     </script>
+
 </body>
 
 </html>

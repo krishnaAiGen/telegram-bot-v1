@@ -70,7 +70,10 @@ async def run_crafter_agent(state: PipelineState) -> PipelineState:
             role=blueprint.role,
             description=blueprint.description
         )
-        tasks.append(generate_json_response(prompt))
+        tasks.append(generate_json_response(
+        prompt=prompt,
+        openai_api_key=state.openai_api_key
+    ))
 
     # Wait for all the LLM calls to complete
     results = await asyncio.gather(*tasks, return_exceptions=True)
@@ -96,7 +99,7 @@ async def run_crafter_agent(state: PipelineState) -> PipelineState:
             print(f"ERROR: {error_message}")
             print(f"LLM Response was: {result}")
             state.status = 'FAILED'
-            state.feedback_notes = error_message
+            state.history.append(error_message)
             return state
 
     state.generated_personas = crafted_personas

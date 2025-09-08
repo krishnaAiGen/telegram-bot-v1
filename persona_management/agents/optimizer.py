@@ -38,7 +38,10 @@ async def run_optimizer_agent(state: PipelineState) -> PipelineState:
     prompt = OPTIMIZER_PROMPT_TEMPLATE.format(persona_list_json=persona_list_json)
 
     # 2. Call the LLM service to get the optimized list.
-    llm_response = await generate_json_response(prompt)
+    llm_response = await generate_json_response(
+    prompt=prompt,
+    openai_api_key=state.openai_api_key
+)
 
     # 3. Validate the response and update the state.
     if "optimized_personas" in llm_response and isinstance(llm_response["optimized_personas"], list):
@@ -62,7 +65,7 @@ async def run_optimizer_agent(state: PipelineState) -> PipelineState:
             print(f"ERROR: {error_message}")
             print(f"LLM Response was: {llm_response}")
             state.status = 'FAILED'
-            state.feedback_notes = error_message
+            state.history.append(error_message)
     else:
         error_message = "OptimizerAgent failed: LLM output did not contain a valid 'optimized_personas' list."
         print(f"ERROR: {error_message}")

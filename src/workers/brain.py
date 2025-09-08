@@ -3,46 +3,53 @@ import asyncio
 import time
 import random
 from asyncio import Queue 
-from config.settings import APP_CONFIG
-from src.services.state_manager import StateManager
-from src.core_logic.llm_personas import PersonaManager
-from src.core_logic.response_logic import handle_reaction, handle_initiation, handle_realtime_query
+
+# Services are now stateless tools
 from src.services.fetch_db import save_message_to_db
 from src.services.openai_chat import get_llm_response
-from src.core_logic.internal_message import InternalMessage
 
-async def brain_worker(brain_queue: Queue, sender_queues: dict[str, Queue], persona_manager: PersonaManager, state_manager: StateManager, db):    
+# The response_logic functions are our primary tools
+from src.core_logic.response_logic import handle_reaction, handle_initiation, handle_realtime_query
+
+# Core data structures
+from src.core_logic.internal_message import InternalMessage
+from src.bot_instance import BotInstance
+
+async def brain_worker(brain_queue: Queue, sender_queues: dict[str, Queue], bot_instance: BotInstance, db: any):    
     """
-    The central processing worker. It consumes from a single brain_queue and
-    routes responses to the appropriate sender_queues.
+    The central processing worker for a SINGLE BotInstance. It consumes from the
+    instance's brain_queue and routes responses to the appropriate sender_queues.
     """
-    print("[BRAIN] Worker started.")
+    print(f"[BRAIN] Worker started for user: {bot_instance.user_id}")
+    
+    # Get the user-specific state manager from the instance
+    state_manager = bot_instance.state_manager
     bot_state = state_manager.load_bot_state()
     
     while True:
         try:
-            # 1. Get a standardized message from the single brain queue
             message: InternalMessage = await asyncio.wait_for(brain_queue.get(), timeout=1.0)
 
-            # 2. Check if the message has already been processed
+            # Use the instance's state manager
             if state_manager.has_processed(message.message_id):
-                print(f"[BRAIN] Message ID {message.message_id} already processed. Skipping.")
+                print(f"[BRAIN] Message ID {message.message_id} already processed for user {bot_instance.user_id}. Skipping.")
                 brain_queue.task_done()
                 continue
             
-            # 3. Save the new message to the database
-            save_message_to_db(message.channel_id, message, db)
+            # Save message to DB, tagging it with the user ID
+            save_message_to_db(message, user_id=bot_instance.user_id, db=db)
 
-            # 4. Check if the message is from a known bot to prevent loops
-            # add Slack Bot's User ID to KNOWN_BOT_IDS in .env
-            known_bot_ids_str = [str(bid) for bid in APP_CONFIG.get('known_bot_ids', [])]
-            if message.sender_id in known_bot_ids_str:
-                print(f"[BRAIN] Ignoring message from known bot ID: {message.sender_id}")
+            # Get user-specific bot settings from the instance
+            known_bot_ids = bot_instance.behavior_settings.get('known_bot_ids', [])
+            if message.sender_id in [str(bid) for bid in known_bot_ids]:
+                print(f"[BRAIN] Ignoring message from known bot ID {message.sender_id} for user {bot_instance.user_id}")
                 state_manager.log_processed(message.message_id)
                 brain_queue.task_done()
                 continue
+            
             # --- STAGE 1: TRIAGE ---
-            print(f"[BRAIN] Triage: Analyzing message ID {message.message_id}...")
+            print(f"[BRAIN] Triage: Analyzing message ID {message.message_id} for user {bot_instance.user_id}...")
+            # --- PROMPT PLACEHOLDER ---
             triage_prompt = f"""Prompt Structure:
 ROLE: "You are a hyper-efficient routing agent. Your only job is to classify an incoming user message into one of two categories: REALTIME_FACTS or PERSONA_OPINION."
 CATEGORY DEFINITIONS:
@@ -61,64 +68,70 @@ Crucially, include persona-specific examples:
 THE DECISION RULE: "If the user is asking for an objective, verifiable fact that could have changed in the last 24 hours, classify it as REALTIME_FACTS. For everything else—including opinions on current events, explanations, historical context, and social chat—classify it as PERSONA_OPINION."
 THE TASK: "Classify the following user message. Respond with ONLY the single word REALTIME_FACTS or PERSONA_OPINION and nothing else."
 USER MESSAGE: {message.text}"
-"""
-            decision = await get_llm_response(triage_prompt, model=APP_CONFIG['triage_model'], max_tokens=5)
-            print(f"[BRAIN] Triage decision: '{decision}' for message from {message.platform}")
+""" 
+            
+            # # --- END PROMPT PLACEHOLDER ---
+            openai_api_key = bot_instance.credentials.get("openai", {}).get("key")
+            triage_model = bot_instance.behavior_settings.get("triage_model", "gpt-3.5-turbo")
+            if not openai_api_key:
+                print(f"CRITICAL: OpenAI key not found for user {bot_instance.user_id} during triage.")
+                decision = "PERSONA_OPINION" # Default to a safe category
+            else:
+                decision = await get_llm_response(triage_prompt, api_key=openai_api_key, model=triage_model, max_tokens=5)
+            
+            print(f"[BRAIN] Triage decision for user {bot_instance.user_id}: '{decision}'")
+            
+            response_payload = None # This will hold the dictionary returned by the logic handlers
 
             if "REALTIME_FACTS" in decision:
-                print(f"[BRAIN] Routing to handle_realtime_query for message {message.message_id}.")
-                await handle_realtime_query(message, sender_queues, persona_manager, db) 
+                response_payload = await handle_realtime_query(message, bot_instance, db) 
             else:
-                response_rate = APP_CONFIG.get("random_response_rate", 1.0)
-                if random.random() > response_rate:
-                    print(f"[BRAIN] Probability gate: Skipped reply for message {message.message_id} (roll > {response_rate}).")
-                    # We do NOT call task_done() or log_processed() here.
-                    # We simply do nothing and let the code proceed to the finalization step below.
+                response_rate = bot_instance.behavior_settings.get("random_response_rate", 1.0)
+                if random.random() < response_rate:
+                    print(f"[BRAIN] Probability gate passed for user {bot_instance.user_id}. Generating reaction.")
+                    response_payload = await handle_reaction(message, bot_instance, db)
                 else:
-                    # If we pass the gate, we proceed with generating a reaction.
-                    print(f"[BRAIN] Probability gate: Proceeding with reply for message {message.message_id} (roll <= {response_rate}).")
-                    
-                    # CORRECT: Pass the 'sender_queues' dictionary
-                    await handle_reaction(message, sender_queues, persona_manager, state_manager, db)
+                    print(f"[BRAIN] Probability gate failed for user {bot_instance.user_id}. Skipping reply.")
 
-            # --- 7. Finalize processing for this message (runs for every message) ---
-            # This ensures every message is marked as processed and we don't get stuck.
-            
-            print(f"[BRAIN] Finalizing processing for message {message.message_id}.")
-            
-            # Log the message ID to prevent reprocessing
+            # --- STAGE 2: DISPATCH ---
+            if response_payload:
+                platform = response_payload.get("platform")
+                sender_queue = sender_queues.get(f"{platform}_sender_queue")
+                if sender_queue:
+                    await sender_queue.put(response_payload)
+                    print(f"[BRAIN] Dispatched response payload for user {bot_instance.user_id} to {platform} sender.")
+                else:
+                    print(f"[BRAIN] ERROR: No sender queue found for platform '{platform}' for user {bot_instance.user_id}.")
+
+            # --- Finalize processing for this message ---
             state_manager.log_processed(message.message_id)
-            
-            # Update the bot's last activity time
             bot_state["last_activity_time"] = time.time()
             state_manager.save_bot_state(bot_state)
-            
-            # Signal to the queue that this item is finished
             brain_queue.task_done()
-
 
         except asyncio.TimeoutError:
             now = time.time()
-            last_activity = bot_state.get('last_activity_time', 0)
+            last_activity = bot_state.get('last_activity_time', now)
+            min_initiate_hours = bot_instance.behavior_settings.get("min_initiate_hours", 1.0)
             inactivity_period_hours = (now - last_activity) / 3600
 
-            if inactivity_period_hours > APP_CONFIG['min_initiate_hours']:
-                print(f"[BRAIN] Inactivity of {inactivity_period_hours:.2f} hours detected. Initiating topic.")
+            if inactivity_period_hours > min_initiate_hours:
+                print(f"[BRAIN] Inactivity of {inactivity_period_hours:.2f} hours detected for user {bot_instance.user_id}. Initiating topic.")
                 
-                # Defaulting to initiate in Telegram, but this could be made smarter
-                telegram_channel_id = str(APP_CONFIG['telegram_group_id'])
-                await handle_initiation(
-                    'telegram', 
-                    telegram_channel_id, 
-                    sender_queues, 
-                    persona_manager, 
-                    state_manager, 
-                    db
-                )
+                # The logic is now cleaner, just passing the instance
+                initiation_payload = await handle_initiation(bot_instance, db)
+                
+                if initiation_payload:
+                    platform = initiation_payload.get("platform")
+                    sender_queue = sender_queues.get(f"{platform}_sender_queue")
+                    if sender_queue:
+                        await sender_queue.put(initiation_payload)
+                        print(f"[BRAIN] Dispatched initiation payload for user {bot_instance.user_id} to {platform} sender.")
                 
                 bot_state["last_activity_time"] = now
                 state_manager.save_bot_state(bot_state)
 
         except Exception as e:
-            print(f"CRITICAL ERROR in Brain Worker: {e}")
-            await asyncio.sleep(10)
+            print(f"CRITICAL ERROR in Brain Worker for user {bot_instance.user_id}: {e}")
+            # In a real system, you might want more robust error handling here.
+            await asyncio.sleep(5)
