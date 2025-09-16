@@ -20,7 +20,7 @@ async def humanize_grok_response(grok_data: str, bot_instance: BotInstance, db: 
     """Takes raw data from Grok and uses a persona to make it sound natural."""
     print(f"[BRAIN] Humanizing data for user {bot_instance.user_id}: '{grok_data[:50]}...'")
     
-    grok_api_key = bot_instance.credentials.get("grok", {}).get("key")
+    grok_api_key = bot_instance.credentials.get("grok", {}).get("api_key")
     if not grok_api_key:
         print(f"[BRAIN] Humanizer returning raw data for user {bot_instance.user_id}: Grok API key is missing.")
         return grok_data
@@ -145,141 +145,140 @@ async def humanize_grok_response(grok_data: str, bot_instance: BotInstance, db: 
         print(f"[BRAIN] Humanizer failed for user {bot_instance.user_id} with error: {e}. Falling back to raw data.")
         return grok_data
 
+
 async def handle_realtime_query(message: InternalMessage, bot_instance: BotInstance, db: any) -> dict | None:
     """Handles fact-based queries. Returns a payload dictionary for the sender, or None."""
     print(f"[BRAIN] Routing message for user {bot_instance.user_id} to Grok.")
     
-    grok_api_key = bot_instance.credentials.get("grok", {}).get("key")
-    mem0_api_key = bot_instance.credentials.get("mem0", {}).get("key")
-    if not all([grok_api_key, mem0_api_key]):
-        print(f"Skipping realtime query for user {bot_instance.user_id}: Missing Grok or Mem0 API key.")
-        return None
-
-    memory_context = get_memory_context(message.text, message.platform, message.sender_id, mem0_api_key)
-    print(f"-----memory_context for realtime query and for message {message.text}-----: {memory_context}, {message.message_id, {'platform': message.platform, 'sender_id': message.sender_id}}")
+    grok_api_key = bot_instance.credentials.get("grok", {}).get("api_key")
+    mem0_api_key = bot_instance.credentials.get("mem0", {}).get("api_key")
     
-    # --- PROMPT PLACEHOLDER ---
-    grok_prompt = f"..." # Your prompt asking Grok for a brief fact goes here
-    # --- END PROMPT PLACEHOLDER ---
+    # --- THIS IS THE NEW TRY/EXCEPT BLOCK ---
+    try:
+        if not all([grok_api_key, mem0_api_key]):
+            print(f"Skipping realtime query for user {bot_instance.user_id}: Missing Grok or Mem0 API key.")
+            # We still generate a graceful reply even if keys are missing
+            raise ValueError("Missing API keys for real-time query.")
 
-    raw_grok_data = await get_grok_response(grok_prompt, grok_api_key=grok_api_key)
-    print(f"-----fact:raw grok data-----: {raw_grok_data}")
-    
-    if "Error:" in raw_grok_data:
-        print(f"Grok service failed for user {bot_instance.user_id}: {raw_grok_data}")
-        return None
+        memory_context = get_memory_context(message.text, message.platform, message.sender_id, mem0_api_key)
+        print(f"-----memory_context for realtime query and for message {message.text}-----: {memory_context}, {message.message_id, {'platform': message.platform, 'sender_id': message.sender_id}}")
+        
+        grok_prompt = f"""##0. Previous chat Context. Use anything from this context if needed to make your response more natural: {memory_context} Regarding the user's query: '{message.text}'.
+Provide the single most important fact or data point as a raw, unformatted sentence. Be extremely brief. Do not explain.
+"""
 
-    final_reply = await humanize_grok_response(raw_grok_data, bot_instance, db)
-    print(f"-----fact:humanized reply-----: {final_reply}")
+        raw_grok_data = await get_grok_response(grok_prompt, grok_api_key=grok_api_key)
+        print(f"-----fact:raw grok data-----: {raw_grok_data}")
+        
+        # Check for errors from the Grok service itself
+        if "Error:" in raw_grok_data:
+            raise Exception(f"Grok service returned an error: {raw_grok_data}")
 
-    if "Error:" in final_reply or not final_reply.strip():
-        print(f"Final reply for user {bot_instance.user_id} was invalid: '{final_reply}'")
-        return None
+        final_reply = await humanize_grok_response(raw_grok_data, bot_instance, db)
+        print(f"-----fact:humanized reply-----: {final_reply}")
 
-    add_to_memory(message.text, "user", message.platform, message.sender_id, mem0_api_key)
-    add_to_memory(final_reply, "assistant", message.platform, "bot_assistant", mem0_api_key)
-    print(f"[BRAIN] Added query and response to memory for message {message.message_id}.")
-    
+        if "Error:" in final_reply or not final_reply.strip():
+            raise Exception(f"Humanizer failed or returned an invalid reply: {final_reply}")
+
+        # Add to memory only on success
+        add_to_memory(message.text, "user", message.platform, message.sender_id, mem0_api_key)
+        add_to_memory(final_reply, "assistant", message.platform, "bot_assistant", mem0_api_key)
+        print(f"[BRAIN] Added query and response to memory for message {message.message_id}.")
+
+    except Exception as e:
+        # This block catches ANY failure: network error, API key missing, Grok error, etc.
+        print(f"CRITICAL ERROR in handle_realtime_query for user {bot_instance.user_id}: {e}")
+        # Define a safe, user-facing fallback message
+        final_reply = "Sorry, I'm having trouble accessing my real-time data services right now. Please try asking again in a moment."
+        print(f"[BRAIN] Generated fallback response for user {bot_instance.user_id}.")
+
+    # This part of the function will now ALWAYS run, ensuring a payload is returned.
     default_sender = bot_instance.behavior_settings.get("default_telegram_sender", "default_sender")
     return {"channel_id": message.channel_id, "message": final_reply, "platform": message.platform, "telegram_user": default_sender}
-
+    
+    
+# In src/core_logic/response_logic.py
 
 async def handle_reaction(message: InternalMessage, bot_instance: BotInstance, db: any) -> dict | None:
-    """Handles conversational messages. Returns a payload dictionary for the sender, or None."""
-    print(f"[BRAIN] Reacting to message for user {bot_instance.user_id} | Text: '{message.text[:40]}...'")
-    
-    openai_api_key = bot_instance.credentials.get("openai", {}).get("key")
-    mem0_api_key = bot_instance.credentials.get("mem0", {}).get("key")
-    if not all([openai_api_key, mem0_api_key]):
-        print(f"Skipping reaction for user {bot_instance.user_id}: Missing OpenAI or Mem0 API key.")
-        return None
-
-    # --- EFFICIENT EMBEDDING USAGE ---
-    # Get the pre-calculated embeddings directly from the BotInstance.
-    persona_embeddings = bot_instance.persona_embeddings
-    persona_names = bot_instance.persona_names
-    # --- END EFFICIENT EMBEDDING USAGE ---
-    
-    chosen_persona_name = None
-    if persona_embeddings:
-        print("[BRAIN] Stage 1: Finding best persona using cached embeddings...")
-        user_embedding = await get_embedding(message.text, api_key=openai_api_key)
+    """
+    Handles conversational messages. Returns a payload dictionary for the sender, or None on failure.
+    This function is wrapped in a single try/except block to ensure the brain worker never crashes.
+    """
+    try:
+        print(f"[BRAIN] Reacting to message for user {bot_instance.user_id} | Text: '{message.text[:40]}...'")
         
-        if user_embedding:
-            user_vector = np.array(user_embedding).reshape(1, -1)
-            scores = cosine_similarity(user_vector, np.array(list(persona_embeddings.values())))[0]
+        openai_api_key = bot_instance.credentials.get("openai", {}).get("api_key")
+        mem0_api_key = bot_instance.credentials.get("mem0", {}).get("api_key")
+        if not all([openai_api_key, mem0_api_key]):
+            raise ValueError("Missing OpenAI or Mem0 API key for reaction.")
 
-            last_persona_info = bot_instance.state_manager.get_last_persona_info()
-            last_persona_name = last_persona_info.get("name")
-            last_persona_time = last_persona_info.get("timestamp", 0)
-
-            if last_persona_name and (time.time() - last_persona_time < 180):
-                try:
-                    idx = persona_names.index(last_persona_name)
-                    bonus = 1.15
-                    print(f"[BRAIN] Applying stickiness bonus of {bonus} to '{last_persona_name}' for user {bot_instance.user_id}")
-                    scores[idx] *= bonus
-                except (ValueError, KeyError):
-                    print(f"[BRAIN] Warning: Last used persona '{last_persona_name}' not found in cached embeddings for user {bot_instance.user_id}.")
-
-            best_match_index = np.argmax(scores)
-            chosen_persona_name = persona_names[best_match_index]
-            print(f"[BRAIN] Best local match for user {bot_instance.user_id}: '{chosen_persona_name}' with score {scores[best_match_index]:.4f}")
-    
-    if not chosen_persona_name:
-        random_persona = bot_instance.persona_manager.get_random_persona()
-        if not random_persona:
-            print(f"ERROR: Could not get a random persona for user {bot_instance.user_id}. Aborting reaction.")
-            return None
-        chosen_persona_name = random_persona['persona_name']
-        print(f"[BRAIN] Local matching failed for user {bot_instance.user_id}. Falling back to random persona: '{chosen_persona_name}'")
-
-    chosen_persona = bot_instance.persona_manager.get_persona_by_name(chosen_persona_name)
-    if not chosen_persona:
-        print(f"ERROR: Could not find full profile for persona '{chosen_persona_name}' for user {bot_instance.user_id}")
-        return None
-
-    memory_context = get_memory_context(message.text, message.platform, message.sender_id, mem0_api_key)
-    print(f"-----memory_context for reaction and for message {message.text}-----: {memory_context}")
-    
-    context_msg_count = bot_instance.behavior_settings.get("response_context_messages", 4)
-    conversation_context = await get_last_n_messages_as_text(message.channel_id, context_msg_count, db)
-    voice = chosen_persona.get('signature_voice', {})
-    boundaries = chosen_persona.get('knowledge_boundaries', {})
-    examples = chosen_persona.get('examples', [])
-
-    # Helper to format lists cleanly for the prompt
-    def format_list(items: list) -> str:
-        return ", ".join(items) if items else "N/A"
-
-    # Helper to format examples cleanly
-    def format_examples(example_list: list) -> str:
-        if not example_list:
-            return "N/A"
-        return "\n".join([f"- User: \"{ex.get('user', '')}\"\n  Assistant: \"{ex.get('assistant', '')}\"" for ex in example_list])
-
-    persona_profile = (
-        f"**Core Identity**\n"
-        f"- Role: {chosen_persona.get('role', 'N/A')}\n"
-        f"- Key Traits: {format_list(chosen_persona.get('key_traits', []))}\n"
-        f"- Expertise: {format_list(chosen_persona.get('expertise', []))}\n\n"
+        # --- Stage 1: Persona Selection using cached embeddings ---
+        persona_embeddings = bot_instance.persona_embeddings
+        persona_names = bot_instance.persona_names
+        chosen_persona_name = None
         
-        f"**Voice & Style**\n"
-        f"- Tone: {voice.get('tone', 'N/A')}\n"
-        f"- Style: {voice.get('style', 'N/A')}\n"
-        f"- Language Habits: {format_list(voice.get('language_habits', []))}\n\n"
+        if persona_embeddings:
+            print("[BRAIN] Stage 1: Finding best persona using cached embeddings...")
+            user_embedding = await get_embedding(message.text, api_key=openai_api_key)
+            
+            if user_embedding:
+                user_vector = np.array(user_embedding).reshape(1, -1)
+                scores = cosine_similarity(user_vector, np.array(list(persona_embeddings.values())))[0]
+
+                last_persona_info = bot_instance.state_manager.get_last_persona_info()
+                last_persona_name = last_persona_info.get("name")
+                last_persona_time = last_persona_info.get("timestamp", 0)
+
+                # Apply stickiness bonus if the same persona was used recently
+                if last_persona_name and (time.time() - last_persona_time < 180):
+                    try:
+                        idx = persona_names.index(last_persona_name)
+                        bonus = 1.15
+                        print(f"[BRAIN] Applying stickiness bonus of {bonus} to '{last_persona_name}'")
+                        scores[idx] *= bonus
+                    except (ValueError, KeyError):
+                        print(f"[BRAIN] Warning: Last used persona '{last_persona_name}' not found in cache.")
+
+                best_match_index = np.argmax(scores)
+                chosen_persona_name = persona_names[best_match_index]
+                print(f"[BRAIN] Best local match for user {bot_instance.user_id}: '{chosen_persona_name}' with score {scores[best_match_index]:.4f}")
         
-        f"**Rules & Boundaries**\n"
-        f"- Topics to Avoid/Defer On: {format_list(boundaries.get('will_defer_on', []))}\n"
-        f"- Standard Refusal Message: \"{boundaries.get('refusal_message', "Sorry, I can\\'t help with that.")}\"\n"
-        f"- Interaction Rules (How to act with other personas): {format_list(chosen_persona.get('interaction_rules', []))}\n\n"
+        # Fallback to a random persona if embedding matching fails
+        if not chosen_persona_name:
+            random_persona = bot_instance.persona_manager.get_random_persona()
+            if not random_persona:
+                raise ValueError("Could not get a random persona. Aborting reaction.")
+            chosen_persona_name = random_persona['persona_name']
+            print(f"[BRAIN] Local matching failed. Falling back to random persona: '{chosen_persona_name}'")
+
+        chosen_persona = bot_instance.persona_manager.get_persona_by_name(chosen_persona_name)
+        if not chosen_persona:
+            raise ValueError(f"Could not find full profile for persona '{chosen_persona_name}'")
+
+        # --- Stage 2: Prompt Construction ---
+        memory_context = get_memory_context(message.text, message.platform, message.sender_id, mem0_api_key)
+        print(f"-----memory_context for reaction and for message {message.text}-----: {memory_context}")
         
-        f"**Examples of How This Persona Talks:**\n"
-        f"{format_examples(examples)}"
-    )
-    print(f"-----conversation_context for reaction and for message {message.text}-----: {conversation_context}")
-    
-    super_prompt = f"""
+        context_msg_count = bot_instance.behavior_settings.get("response_context_messages", 4)
+        conversation_context = await get_last_n_messages_as_text(message.channel_id, context_msg_count, db)
+        print(f"-----conversation_context for reaction and for message {message.text}-----: {conversation_context}")
+
+        voice = chosen_persona.get('signature_voice', {})
+        boundaries = chosen_persona.get('knowledge_boundaries', {})
+        examples = chosen_persona.get('examples', [])
+
+        def format_list(items: list) -> str: return ", ".join(items) if items else "N/A"
+        def format_examples(example_list: list) -> str:
+            if not example_list: return "N/A"
+            return "\n".join([f"- User: \"{ex.get('user', '')}\"\n  Assistant: \"{ex.get('assistant', '')}\"" for ex in example_list])
+
+        persona_profile = (
+            f"**Core Identity**\n- Role: {chosen_persona.get('role', 'N/A')}\n- Key Traits: {format_list(chosen_persona.get('key_traits', []))}\n- Expertise: {format_list(chosen_persona.get('expertise', []))}\n\n"
+            f"**Voice & Style**\n- Tone: {voice.get('tone', 'N/A')}\n- Style: {voice.get('style', 'N/A')}\n- Language Habits: {format_list(voice.get('language_habits', []))}\n\n"
+            f"**Rules & Boundaries**\n- Topics to Avoid/Defer On: {format_list(boundaries.get('will_defer_on', []))}\n- Standard Refusal Message: \"{boundaries.get('refusal_message', "Sorry, I can\\'t help with that.")}\"\n- Interaction Rules (How to act with other personas): {format_list(chosen_persona.get('interaction_rules', []))}\n\n"
+            f"**Examples of How This Persona Talks:**\n{format_examples(examples)}"
+        )
+        super_prompt = f"""
 # SYSTEM PROMPT
 ##0. Previous chat Context. Use anything from this context if needed to make your response more natural: {memory_context}
 
@@ -345,30 +344,35 @@ This is the context of the last few messages. The "User's Message" at the end is
 ---
 YOUR REPLY (RAW TEXT ONLY):
 """
+        
+        # --- Stage 3: LLM Call and Finalization ---
+        final_reply = await get_llm_response(super_prompt, api_key=openai_api_key, max_tokens=60)
+        final_reply = re.sub(r'^"(.*)"$', r'\1', final_reply.strip())
+        print(f"-----Reaction: persona-based-reply-----: {final_reply}")
 
-    reply = await get_llm_response(super_prompt, api_key=openai_api_key, max_tokens=60)
-    reply = re.sub(r'^"(.*)"$', r'\1', reply.strip())
-    print(f"-----Reaction: persona-based-reply-----: {reply}")
+        if not final_reply.strip():
+            raise ValueError("LLM returned an empty or invalid response.")
+        
+        # Add to memory and update state
+        add_to_memory(message.text, "user", message.platform, message.sender_id, mem0_api_key)
+        add_to_memory(final_reply, "assistant", message.platform, "bot_assistant", mem0_api_key)
+        
+        bot_instance.state_manager.update_last_persona_info(chosen_persona_name)
+        print(f"[BRAIN] Updated last used persona to '{chosen_persona_name}' for user {bot_instance.user_id}")
+        
+        # Determine which sender account to use for Telegram
+        sender_user = chosen_persona.get("telegram_user") or bot_instance.behavior_settings.get("default_telegram_sender")
+        
+        # Return the final payload for the sender task
+        return {"channel_id": message.channel_id, "message": final_reply, "platform": message.platform, "telegram_user": sender_user}
 
-    humanized_reply = await humanize_grok_response(reply, bot_instance, db, chosen_persona=chosen_persona)
-    print(f"-----Reaction:persona-based-reply-after-humanization-----: {humanized_reply}")
-
-    if "Error:" in humanized_reply or not humanized_reply.strip():
-        print(f"Error in LLM response for user {bot_instance.user_id}, not sending. Reply: {humanized_reply}")
+    except Exception as e:
+        # This single block catches any error from the entire process above
+        print(f"CRITICAL ERROR in handle_reaction for user {bot_instance.user_id}: {e}")
+        # Return None to signal failure, preventing the worker from crashing
         return None
-    
-    add_to_memory(message.text, "user", message.platform, message.sender_id, mem0_api_key)
-    add_to_memory(humanized_reply, "assistant", message.platform, "bot_assistant", mem0_api_key)
-    
-    bot_instance.state_manager.update_last_persona_info(chosen_persona_name)
-    print(f"[BRAIN] Updated last used persona to '{chosen_persona_name}' for user {bot_instance.user_id}")
-    
-    sender_user = chosen_persona.get("telegram_user") or bot_instance.behavior_settings.get("default_telegram_sender")
-    
-    return {"channel_id": message.channel_id, "message": humanized_reply, "platform": message.platform, "telegram_user": sender_user}
-
-
-
+        
+        
 async def handle_initiation(bot_instance: BotInstance, db: any) -> dict | None:
     """Generates a new topic. Returns a payload dictionary for the sender, or None."""
     print(f"[BRAIN] Handling topic initiation for user {bot_instance.user_id}")

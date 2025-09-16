@@ -2,62 +2,36 @@
 
 import asyncio
 from asyncio import Queue
-import discord
-import random
-
 from src.bot_instance import BotInstance
 
 async def discord_sender_task(
-    queue: Queue, 
+    sender_queue: Queue,
     bot_instance: BotInstance,
-    shared_client_setup_event: asyncio.Event,
-    shared_client_object: list
+    command_queue: Queue  # We now require the new command_queue
 ):
     """
-    A dedicated worker that sends messages to Discord using the shared client
-    from the listener task.
+    This worker's ONLY job is to take a message from the brain's sender_queue
+    and put it onto the listener's internal command_queue. This decouples
+    the brain from the live discord client.
     """
     user_id = bot_instance.user_id
-    print(f"[DISCORD SENDER] Worker for user {user_id} is waiting for client to be ready...")
+    print(f"[DISCORD SENDER] Bridge worker starting for user {user_id}.")
     
-    # Wait until the listener has successfully connected and set the event
-    await shared_client_setup_event.wait()
-
-    if not shared_client_object:
-        print(f"[DISCORD SENDER] Could not start for user {user_id}: Listener failed to provide a client object.")
-        return
-        
-    client: discord.Client = shared_client_object[0]
-    print(f"[DISCORD SENDER] Worker for user {user_id} has received client and is starting.")
-
-    while not client.is_closed():
+    while True:
         try:
-            msg = await queue.get()
+            # 1. Get the payload from the brain
+            payload = await sender_queue.get()
             
-            channel_id_str = msg.get("channel_id")
-            text = msg.get("message")
-
-            if not all([channel_id_str, text]):
-                queue.task_done()
-                continue
+            # 2. Put the payload onto the command queue for the listener to handle
+            await command_queue.put(payload)
             
-            channel = client.get_channel(int(channel_id_str))
+            print(f"[DISCORD SENDER] Relayed message for user {user_id} to listener's command queue.")
             
-            if channel and isinstance(channel, discord.abc.Messageable):
-                await channel.send(text)
-                print(f"[DISCORD SENDER] Message sent for user {user_id} to channel {channel_id_str}.")
-            else:
-                print(f"[DISCORD SENDER] ERROR: Could not find channel with ID {channel_id_str} for user {user_id}.")
-
-            min_delay = bot_instance.behavior_settings.get("min_send_delay_secs", 1.0)
-            max_delay = bot_instance.behavior_settings.get("max_send_delay_secs", 3.0)
-            await asyncio.sleep(random.uniform(min_delay, max_delay))
-            
-            queue.task_done()
+            sender_queue.task_done()
 
         except asyncio.CancelledError:
-            print(f"[DISCORD SENDER] Task cancelled for user {user_id}.")
+            print(f"[DISCORD SENDER] Bridge worker for user {user_id} cancelled.")
             break
         except Exception as e:
-            print(f"CRITICAL ERROR in Discord Sender for user {user_id}: {e}")
+            print(f"CRITICAL ERROR in Discord Sender Bridge for user {user_id}: {e}")
             await asyncio.sleep(5)

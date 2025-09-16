@@ -680,7 +680,7 @@
                                     <path
                                         d="M15.854.146a.5.5 0 0 1 .11.54l-5.819 14.547a.75.75 0 0 1-1.329.124l-3.178-4.995L.643 7.184a.75.75 0 0 1 .124-1.33L15.314.037a.5.5 0 0 1 .54.11ZM6.636 10.07l2.761 4.338L14.13 2.576zm6.787-8.201L1.591 6.602l4.339 2.76z" />
                                 </svg>
-                                Deploy Team
+                                Deploy & Configure
                             </button>
                         </div>
                     </div>
@@ -1173,12 +1173,26 @@
                 showNotification("Loading your configuration...", 'info');
                 try {
                     const config = await apiRequest('/api/config', 'GET');
-                    activeTeam = config.draftTeam || [];
+
+                    // --- THIS IS THE FIX ---
+                    // We now explicitly check if config exists and if draftTeam/liveTeam are arrays.
+                    // This guarantees that 'activeTeam' will always be an array, even if the config is empty.
+                    let initialTeam = [];
+                    if (config) {
+                        const draft = Array.isArray(config.draftTeam) ? config.draftTeam : [];
+                        const live = Array.isArray(config.liveTeam) ? config.liveTeam : [];
+                        // Prioritize showing the draft team if it exists, otherwise fall back to the live team.
+                        initialTeam = draft.length > 0 ? draft : live;
+                    }
+                    activeTeam = initialTeam;
+                    // --- END OF FIX ---
+
                     updateLiveStatus(config.isActive || false);
-                    renderActiveTeam();
+                    renderActiveTeam(); // Now this will always receive a valid array.
                     showNotification("Configuration loaded!", 'success');
                 } catch (error) {
                     showNotification(`Could not load config: ${error.message}`, 'error');
+                    // Also ensure 'activeTeam' is an array in the catch block for safety.
                     activeTeam = [];
                     updateLiveStatus(false);
                     renderActiveTeam();
@@ -1333,13 +1347,22 @@
             }
 
             async function handleGenerate() {
+                showNotification("Checking credentials...", 'info');
                 try {
-                    const status = await apiRequest('/api/connections/status', 'GET');
-                    if (!status.has_openai_key) {
-                        showApiKeyModal(true);
-                    } else {
+                    // --- THIS IS THE FIX ---
+                    // We fetch ALL connections to get a reliable check for the OpenAI key.
+                    const connections = await apiRequest('/api/connections/all', 'GET');
+                    
+                    // Check if the openai connection and its key exist.
+                    const openai_connection = connections ? connections.openai : null;
+                    if (openai_connection && (openai_connection.api_key_encrypted || openai_connection.encrypted_key)) {
+                        // If the key exists, proceed directly to generation.
                         await proceedToPersonaGeneration();
+                    } else {
+                        // If the key does NOT exist, open the original API key modal.
+                        showApiKeyModal(true);
                     }
+                    // --- END OF FIX ---
                 } catch (error) {
                     showNotification(`Error: ${error.message}`, 'error');
                 }
@@ -1347,33 +1370,54 @@
 
             async function proceedToPersonaGeneration() {
                 const goal = document.getElementById('goal-prompt').value;
-                if (!goal.trim()) return showNotification("Please describe your goal first.", 'error');
+                if (!goal.trim()) {
+                    return showNotification("Please describe your goal first.", 'error');
+                }
+                
                 showLoader(true);
                 try {
                     const result = await apiRequest('/api/personas/generate', 'POST', { goal });
                     showNotification(result.message, 'success');
-                    await loadInitialData();
+                    // After generating, we must reload the user's data to see the new draft.
+                    await loadInitialData(); 
                 } catch (error) {
-                    showNotification(`Error: ${error.message}`, 'error');
+                    showNotification(`Error during generation: ${error.message}`, 'error');
                 } finally {
                     showLoader(false);
                 }
             }
 
+            // --- CORRECTED FUNCTION ---
+
             async function handleSaveApiKey() {
                 const apiKey = apiKeyInput.value.trim();
                 if (!apiKey) return showApiKeyMessage('Please enter an API key.');
+                
                 saveApiKeyBtn.disabled = true;
                 saveApiKeyBtn.textContent = 'Saving...';
+                
                 try {
-                    await apiRequest('/api/connections/openai', 'POST', { api_key: apiKey });
+                    // --- THIS IS THE FIX ---
+                    // 1. The method is now 'PUT' instead of 'POST'.
+                    // 2. The endpoint is '/api/connections/keys'.
+                    // 3. The body is now nested correctly as the backend expects.
+                    const body = {
+                        openai: {
+                            api_key: apiKey
+                        }
+                    };
+                    await apiRequest('/api/connections/keys', 'PUT', body);
+                    // --- END OF FIX ---
+
                     showApiKeyMessage('Key saved successfully!', 'success');
                     setTimeout(() => {
                         showApiKeyModal(false);
+                        // After successfully saving the key, proceed to the generation step.
                         proceedToPersonaGeneration();
                     }, 1000);
+
                 } catch (error) {
-                    showApiKeyMessage(`Failed to save key: ${error.message}`);
+                    showApiKeyMessage(`Failed to save key: ${error.message}`, 'error');
                 } finally {
                     saveApiKeyBtn.disabled = false;
                     saveApiKeyBtn.textContent = 'Save and Continue';
@@ -1381,23 +1425,30 @@
             }
 
             async function handleDeploy() {
-                if (!activeTeam || activeTeam.length === 0) return showNotification("You cannot deploy an empty team.", 'error');
-                if (confirm(`This will deploy your ${activeTeam.length} personas and open the final configuration. Continue?`)) {
+                if (!activeTeam || activeTeam.length === 0) {
+                    return showNotification("You cannot deploy an empty team.", 'error');
+                }
+                if (confirm(`This will deploy your ${activeTeam.length} personas and open the final bot configuration. Continue?`)) {
+                    
                     deployBtn.disabled = true;
                     deployBtn.innerHTML = 'Deploying...';
+                    
                     try {
-                        // First, deploy the team
+                        // First, deploy the team to the liveTeam field
                         const result = await apiRequest('/api/deploy', 'POST');
                         showNotification(result.message, 'success');
                         
-                        // On success, open the Bot Configuration modal
-                        await loadAndShowBotConfigModal();
+                        // --- THIS IS THE KEY CHANGE ---
+                        // On success, immediately open the next step of the wizard
+                        await loadAndShowSettingsModal();
+                        // -----------------------------
 
                     } catch (error) {
                         showNotification(`Deployment Failed: ${error.message}`, 'error');
                     } finally {
                         deployBtn.disabled = false;
-                        deployBtn.innerHTML = `<svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" fill="currentColor" viewBox="0 0 16 16"><path d="M15.854.146a.5.5 0 0 1 .11.54l-5.819 14.547a.75.75 0 0 1-1.329.124l-3.178-4.995L.643 7.184a.75.75 0 0 1 .124-1.33L15.314.037a.5.5 0 0 1 .54.11ZM6.636 10.07l2.761 4.338L14.13 2.576zm6.787-8.201L1.591 6.602l4.339 2.76z"/></svg> Deploy & Configure`; // Restore deploy button SVG/Text
+                        // Restore the original button text and icon
+                        deployBtn.innerHTML = `<svg xmlns="http://www.w.w3.org/2000/svg" width="16" height="16" fill="currentColor" viewBox="0 0 16 16"><path d="M15.854.146a.5.5 0 0 1 .11.54l-5.819 14.547a.75.75 0 0 1-1.329.124l-3.178-4.995L.643 7.184a.75.75 0 0 1 .124-1.33L15.314.037a.5.5 0 0 1 .54.11ZM6.636 10.07l2.761 4.338L14.13 2.576zm6.787-8.201L1.591 6.602l4.339 2.76z"/></svg> Deploy & Configure`;
                     }
                 }
             }
@@ -1520,7 +1571,9 @@
             if (botConfigModal) botConfigModal.style.display = shouldShow ? 'flex' : 'none';
             }
 
-            async function loadAndShowBotConfigModal() {
+            // --- CORRECTED FUNCTION ---
+
+            async function loadAndShowSettingsModal() {
                 showBotConfigModal(true);
                 const msg = document.getElementById('bot-config-message');
                 msg.textContent = 'Loading existing configuration...';
@@ -1530,12 +1583,16 @@
                         apiRequest('/api/config', 'GET')
                     ]);
                     
-                    // If a key exists, show '********' as a placeholder.
-                    document.getElementById('config-openai-key').placeholder = connections.openai?.encrypted_key ? '********' : '';
-                    document.getElementById('config-grok-key').placeholder = connections.grok?.encrypted_key ? '********' : '';
-                    document.getElementById('config-mem0-key').placeholder = connections.mem0?.encrypted_key ? '********' : '';
+                    // --- THIS IS THE FIX ---
+                    // We now check for the standardized 'api_key_encrypted' field first,
+                    // falling back to the old 'encrypted_key' field. This ensures
+                    // that newly saved keys are always detected.
+                    document.getElementById('config-openai-key').placeholder = (connections.openai?.api_key_encrypted || connections.openai?.encrypted_key) ? '********' : '';
+                    document.getElementById('config-grok-key').placeholder = (connections.grok?.api_key_encrypted || connections.grok?.encrypted_key) ? '********' : '';
+                    document.getElementById('config-mem0-key').placeholder = (connections.mem0?.api_key_encrypted || connections.mem0?.encrypted_key) ? '********' : '';
+                    // --- END OF FIX ---
                     
-                    // Clear the input fields so the placeholder shows
+                    // Clear the input fields so the placeholder shows correctly
                     document.getElementById('config-openai-key').value = '';
                     document.getElementById('config-grok-key').value = '';
                     document.getElementById('config-mem0-key').value = '';
@@ -1552,7 +1609,7 @@
                 }
             }
 
-            async function handleSaveBotConfig() {
+            async function handleSaveSettings() {
                 configSaveBtn.disabled = true;
                 configSaveBtn.textContent = 'Saving...';
                 const msg = document.getElementById('bot-config-message');
@@ -1565,7 +1622,7 @@
                     const mem0Key = document.getElementById('config-mem0-key').value.trim();
 
                     // Only include keys in the payload if the user entered a new value
-                    if (openaiKey) keysPayload.openai = { key: openaiKey };
+                    if (openaiKey) keysPayload.openai = { api_key: openaiKey };
                     if (grokKey) keysPayload.grok = { api_key: grokKey };
                     if (mem0Key) keysPayload.mem0 = { api_key: mem0Key };
 
@@ -1587,6 +1644,8 @@
 
                     showNotification("Bot configuration saved successfully!", 'success');
                     showBotConfigModal(false);
+                    await showConnectionsModal();
+
 
                 } catch (error) {
                     msg.textContent = `Save failed: ${error.message}`;
@@ -1621,50 +1680,71 @@
             }
 
             function renderTelegramSettings() {
-                    const body = document.querySelector('#telegram-settings-modal .modal-body');
-                    body.innerHTML = `
+                const modalBody = document.querySelector('#telegram-settings-modal .modal-body');
+                if (!modalBody) return;
+                modalBody.innerHTML = `
                     <div class="form-group"><label for="tg-group-id">Target Group ID</label><input type="text" id="tg-group-id"></div>
                     <div class="connection-section"><label>Listener (Ingestor) Account</label><div id="ingestor-status" class="connection-status"></div></div>
                     <div class="connection-section"><label>Sender Accounts</label><div id="sender-list"></div><button id="add-sender-btn" class="btn btn-secondary btn-sm" style="margin-top: 10px;">+ Add Sender</button></div>
                     <div class="form-group"><label for="tg-known-bots">Known Bot IDs to Ignore (comma-separated)</label><textarea id="tg-known-bots" rows="2"></textarea></div>
                 `;
-                    document.getElementById('tg-group-id').value = telegramSettings.telegram_group_id || '';
-                    document.getElementById('tg-known-bots').value = (telegramSettings.known_bot_ids || []).join(', ');
+                document.getElementById('tg-group-id').value = telegramSettings.telegram_group_id || '';
+                document.getElementById('tg-known-bots').value = (telegramSettings.known_bot_ids || []).join(', ');
 
-                    const ingestorStatusDiv = document.getElementById('ingestor-status');
-                    if (telegramSettings.ingestor_config) {
-                        ingestorStatusDiv.innerHTML = `<span class="status-badge connected">Connected</span><button class="btn btn-danger btn-sm js-remove-tg-account" data-type="ingestor">Remove</button>`;
-                    } else {
-                        ingestorStatusDiv.innerHTML = `<span class="status-badge disconnected">Not Connected</span><button class="btn btn-secondary btn-sm js-connect-tg-account" data-type="ingestor">Connect</button>`;
-                    }
-
-                    const senderListDiv = document.getElementById('sender-list');
-                    senderListDiv.innerHTML = '';
-                    const senders = telegramSettings.senders_config || {};
-                    for (const senderName in senders) {
-                        const senderDiv = document.createElement('div');
-                        senderDiv.className = 'connection-status';
-                        senderDiv.innerHTML = `<span>${senderName}</span><div><span class="status-badge connected">Connected</span><button class="btn btn-danger btn-sm js-remove-tg-account" data-type="sender" data-name="${senderName}">Remove</button></div>`;
-                        senderListDiv.appendChild(senderDiv);
-                    }
-
-                    document.querySelector('.js-connect-tg-account[data-type="ingestor"]').addEventListener('click', () => startTelegramLogin('ingestor'));
-                    document.getElementById('add-sender-btn').addEventListener('click', () => {
-                        const senderName = prompt("Enter a unique name for this sender account (e.g., sender1):");
-                        if (senderName && senderName.trim()) {
-                            startTelegramLogin('sender', senderName.trim());
-                        }
-                    });
-                    document.querySelectorAll('.js-remove-tg-account').forEach(btn => {
-                        btn.addEventListener('click', (e) => {
-                            const type = e.target.dataset.type;
-                            const name = e.target.dataset.name;
-                            if (type === 'ingestor') delete telegramSettings.ingestor_config;
-                            if (type === 'sender' && name) delete telegramSettings.senders_config[name];
-                            renderTelegramSettings();
-                        });
-                    });
+                const ingestorStatusDiv = document.getElementById('ingestor-status');
+                if (telegramSettings.ingestor_config?.session_string_encrypted) {
+                    ingestorStatusDiv.innerHTML = `<span class="status-badge connected">Connected</span><button class="btn btn-danger btn-sm js-remove-tg-account" data-type="ingestor">Remove</button>`;
+                } else {
+                    ingestorStatusDiv.innerHTML = `<span class="status-badge disconnected">Not Connected</span><button class="btn btn-secondary btn-sm js-connect-tg-account" data-type="ingestor">Connect</button>`;
                 }
+
+                const senderListDiv = document.getElementById('sender-list');
+                senderListDiv.innerHTML = '';
+                const senders = telegramSettings.senders_config || {};
+                for (const senderName in senders) {
+                    const senderDiv = document.createElement('div');
+                    senderDiv.className = 'connection-status';
+                    senderDiv.innerHTML = `<span>${senderName}</span><div><span class="status-badge connected">Connected</span><button class="btn btn-danger btn-sm js-remove-tg-account" data-type="sender" data-name="${senderName}">Remove</button></div>`;
+                    senderListDiv.appendChild(senderDiv);
+                }
+            }
+            function handleTelegramSettingsClick(event) {
+                const target = event.target;
+                
+                // Check if the "Connect Ingestor" button was clicked
+                if (target.matches('.js-connect-tg-account[data-type="ingestor"]')) {
+                    startTelegramLogin('ingestor');
+                    return;
+                }
+
+                // Check if the "Add Sender" button was clicked
+                if (target.id === 'add-sender-btn') {
+                    const senderName = prompt("Enter a unique name for this sender account (e-g., sender1):");
+                    if (senderName && senderName.trim()) {
+                        startTelegramLogin('sender', senderName.trim());
+                    }
+                    return;
+                }
+
+                // Check if a "Remove" button was clicked
+                if (target.matches('.js-remove-tg-account')) {
+                    const type = target.dataset.type;
+                    const name = target.dataset.name;
+                    
+                    if (!confirm(`Are you sure you want to remove this ${type}? The session will be lost.`)) {
+                        return;
+                    }
+
+                    if (type === 'ingestor') {
+                        delete telegramSettings.ingestor_config;
+                    }
+                    if (type === 'sender' && name && telegramSettings.senders_config) {
+                        delete telegramSettings.senders_config[name];
+                    }
+                    // After changing the local state, re-render the modal to show the change.
+                    renderTelegramSettings();
+                }
+            }
 
             function startTelegramLogin(type, name = null) {
                     resetTelegramLoginWizard();
@@ -1901,7 +1981,16 @@
                     discordSaveBtn.addEventListener('click', handleSaveDiscordSettings);
                     configCloseBtn.addEventListener('click', () => showBotConfigModal(false));
                     configCancelBtn.addEventListener('click', () => showBotConfigModal(false));
-                    configSaveBtn.addEventListener('click', handleSaveBotConfig);
+                    configSaveBtn.addEventListener('click', handleSaveSettings);
+                    settingsBtn.addEventListener('click', loadAndShowSettingsModal);
+                    settingsSaveBtn.addEventListener('click', handleSaveSettings);
+                    settingsCancelBtn.addEventListener('click', () => showSettingsModal(false));
+                    const telegramSettingsBody = document.querySelector('#telegram-settings-modal .modal-body');
+                    if (telegramSettingsBody) {
+                        telegramSettingsBody.addEventListener('click', handleTelegramSettingsClick);
+                    }
+
+                    
                 }
 
                 initializeApp();
