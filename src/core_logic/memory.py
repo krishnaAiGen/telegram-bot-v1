@@ -1,97 +1,57 @@
 # src/core_logic/memory.py
 from mem0 import MemoryClient
-import os
-from dotenv import load_dotenv
 
-load_dotenv()
+def get_memory_client(api_key: str) -> MemoryClient | None:
+    """Initializes and returns a MemoryClient with a specific API key."""
+    if not api_key:
+        print("[MEMORY] Warning: No Mem0 API key provided.")
+        return None
+    return MemoryClient(api_key=api_key)
 
-# Initialize Mem0 client
-memory_client = MemoryClient(api_key=os.getenv("MEM0_API_KEY"))
+def _generate_user_id(platform: str, user_id: str) -> str:
+    """Creates a unique, composite user ID for mem0, e.g., 'telegram_12345'."""
+    return f"{platform}_{user_id}"
 
-async def handle_memory(query: str, type: str, user_id: str = "telegram_bot") -> str:
+def get_memory_context(query: str, platform: str, user_id: str, mem0_api_key: str) -> str:
     """
-    Handle memory operations for the telegram bot.
-    
-    Args:
-        query: The text content to process
-        type: Either "query" or "response" 
-        user_id: Unique identifier for the user/bot
-        
-    Returns:
-        String of relevant memories (empty if type is "response")
+    Get relevant memory context for a query using a user-specific API key.
     """
-    try:
-        if type == "query":
-            # Search for relevant memories first
-            search_result = memory_client.search(query=query, user_id=user_id, limit=5)
-            
-            # Handle different response structures
-            if isinstance(search_result, list):
-                relevant_memories = [entry.get("memory", "") for entry in search_result if isinstance(entry, dict)]
-            elif isinstance(search_result, dict) and "results" in search_result:
-                relevant_memories = [entry.get("memory", "") for entry in search_result["results"]]
-            else:
-                relevant_memories = []
-            
-            # Add the query to memory
-            memory_client.add([{"role": "user", "content": query}], user_id=user_id)
-            
-            # Format relevant memories for prompt
-            if relevant_memories:
-                memories_str = "\n".join(f"- {m}" for m in relevant_memories if m)
-                return f"Previous relevant interactions:\n{memories_str}\n\n"
-            else:
-                return ""
-                
-        elif type == "response":
-            # Just add the response to memory, don't search
-            memory_client.add([{"role": "assistant", "content": query}], user_id=user_id)
-            return ""
-        else:
-            print(f"[MEMORY] Invalid type '{type}'. Must be 'query' or 'response'")
-            return ""
-            
-    except Exception as e:
-        print(f"[MEMORY] Error handling memory operation: {e}")
+    memory_client = get_memory_client(mem0_api_key)
+    if not memory_client:
         return ""
 
-def get_memory_context(query: str, user_id: str = "telegram_bot") -> str:
-    """
-    Get relevant memory context for a query without adding it to memory.
-    Useful for getting context before LLM calls.
-    """
+    mem0_user_id = _generate_user_id(platform, user_id)
+    
     try:
-        search_result = memory_client.search(query=query, user_id=user_id, limit=5)
+        search_result = memory_client.search(query=query, user_id=mem0_user_id, limit=5)
         
-        # Handle different response structures
+        relevant_memories = []
         if isinstance(search_result, list):
             relevant_memories = [entry.get("memory", "") for entry in search_result if isinstance(entry, dict)]
         elif isinstance(search_result, dict) and "results" in search_result:
             relevant_memories = [entry.get("memory", "") for entry in search_result["results"]]
-        else:
-            relevant_memories = []
         
         if relevant_memories:
             memories_str = "\n".join(f"- {m}" for m in relevant_memories if m)
             return f"Previous relevant interactions:\n{memories_str}\n\n"
-        else:
-            return ""
+        return ""
             
     except Exception as e:
-        print(f"[MEMORY] Error getting memory context: {e}")
+        print(f"[MEMORY] Error getting memory context for '{mem0_user_id}': {e}")
         return ""
 
-def add_to_memory(content: str, role: str = "assistant", user_id: str = "telegram_bot"):
+def add_to_memory(content: str, role: str, platform: str, user_id: str, mem0_api_key: str):
     """
-    Add content to memory without searching.
+    Add content to memory using a user-specific API key.
+    """
+    memory_client = get_memory_client(mem0_api_key)
+    if not memory_client:
+        return
+
+    mem0_user_id = _generate_user_id(platform, user_id)
     
-    Args:
-        content: The content to add
-        role: Either "user" or "assistant"
-        user_id: Unique identifier for the user/bot
-    """
     try:
-        memory_client.add([{"role": role, "content": content}], user_id=user_id)
-        print(f"[MEMORY] Added {role} content to memory")
+        memory_client.add([{"role": role, "content": content}], user_id=mem0_user_id)
+        print(f"[MEMORY] Added {role} content to memory for '{mem0_user_id}'")
     except Exception as e:
-        print(f"[MEMORY] Error adding to memory: {e}") 
+        print(f"[MEMORY] Error adding to memory for '{mem0_user_id}': {e}")
