@@ -65,9 +65,12 @@ db = firestore.client()
 app = FastAPI(title="AI Persona Bot Backend API (Unified)", lifespan=lifespan)
 
 # --- 5. CORS Middleware ---
+origins = os.getenv("CORS_ORIGINS", "")
+origins = [origin.strip() for origin in origins.split(",") if origin.strip()]
+
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["*"],  # In production, restrict this to your frontend's domain
+    allow_origins=origins,  
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
