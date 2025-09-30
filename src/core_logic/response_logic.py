@@ -32,9 +32,6 @@ async def humanize_grok_response(grok_data: str, bot_instance: BotInstance, db: 
     if not chosen_persona:
         print(f"[BRAIN] Humanizer returning raw data for user {bot_instance.user_id}: No persona could be selected.")
         return grok_data
-    if not chosen_persona:
-        print(f"ERROR: Could not find full profile for persona '{chosen_persona_name}' for user {bot_instance.user_id}")
-        return None
 
     # --- THIS IS THE NEW, SUPER-INFORMATIVE PROFILE ---
     voice = chosen_persona.get('signature_voice', {})
@@ -51,6 +48,9 @@ async def humanize_grok_response(grok_data: str, bot_instance: BotInstance, db: 
             return "N/A"
         return "\n".join([f"- User: \"{ex.get('user', '')}\"\n  Assistant: \"{ex.get('assistant', '')}\"" for ex in example_list])
 
+    # Extract refusal message to avoid backslash in f-string
+    refusal_msg = boundaries.get('refusal_message', "Sorry, I can't help with that.")
+    
     persona_profile = (
         f"**Core Identity**\n"
         f"- Role: {chosen_persona.get('role', 'N/A')}\n"
@@ -64,12 +64,13 @@ async def humanize_grok_response(grok_data: str, bot_instance: BotInstance, db: 
         
         f"**Rules & Boundaries**\n"
         f"- Topics to Avoid/Defer On: {format_list(boundaries.get('will_defer_on', []))}\n"
-        f"- Standard Refusal Message: \"{boundaries.get('refusal_message', "Sorry, I can\\'t help with that.")}\"\n"
+        f"- Standard Refusal Message: \"{refusal_msg}\"\n"
         f"- Interaction Rules (How to act with other personas): {format_list(chosen_persona.get('interaction_rules', []))}\n\n"
         
         f"**Examples of How This Persona Talks:**\n"
         f"{format_examples(examples)}"
-        )
+    )
+    
     # The channel ID for context should come from behavior settings
     channel_id = bot_instance.behavior_settings.get("primary_channel_id", "default_channel")
     context_msg_count = bot_instance.behavior_settings.get("response_context_messages", 4)
@@ -267,17 +268,24 @@ async def handle_reaction(message: InternalMessage, bot_instance: BotInstance, d
         boundaries = chosen_persona.get('knowledge_boundaries', {})
         examples = chosen_persona.get('examples', [])
 
-        def format_list(items: list) -> str: return ", ".join(items) if items else "N/A"
+        def format_list(items: list) -> str: 
+            return ", ".join(items) if items else "N/A"
+        
         def format_examples(example_list: list) -> str:
-            if not example_list: return "N/A"
+            if not example_list: 
+                return "N/A"
             return "\n".join([f"- User: \"{ex.get('user', '')}\"\n  Assistant: \"{ex.get('assistant', '')}\"" for ex in example_list])
 
+        # Extract refusal message to avoid backslash in f-string
+        refusal_msg = boundaries.get('refusal_message', "Sorry, I can't help with that.")
+        
         persona_profile = (
             f"**Core Identity**\n- Role: {chosen_persona.get('role', 'N/A')}\n- Key Traits: {format_list(chosen_persona.get('key_traits', []))}\n- Expertise: {format_list(chosen_persona.get('expertise', []))}\n\n"
             f"**Voice & Style**\n- Tone: {voice.get('tone', 'N/A')}\n- Style: {voice.get('style', 'N/A')}\n- Language Habits: {format_list(voice.get('language_habits', []))}\n\n"
-            f"**Rules & Boundaries**\n- Topics to Avoid/Defer On: {format_list(boundaries.get('will_defer_on', []))}\n- Standard Refusal Message: \"{boundaries.get('refusal_message', "Sorry, I can\\'t help with that.")}\"\n- Interaction Rules (How to act with other personas): {format_list(chosen_persona.get('interaction_rules', []))}\n\n"
+            f"**Rules & Boundaries**\n- Topics to Avoid/Defer On: {format_list(boundaries.get('will_defer_on', []))}\n- Standard Refusal Message: \"{refusal_msg}\"\n- Interaction Rules (How to act with other personas): {format_list(chosen_persona.get('interaction_rules', []))}\n\n"
             f"**Examples of How This Persona Talks:**\n{format_examples(examples)}"
         )
+        
         super_prompt = f"""
 # SYSTEM PROMPT
 ##0. Previous chat Context. Use anything from this context if needed to make your response more natural: {memory_context}
@@ -442,7 +450,8 @@ YOUR JSON RESPONSE:
         print(f"[BRAIN] Raw LLM response for initiation: {response_str}")
         data = json.loads(response_str)
         topic, question = data.get("topic_summary"), data.get("question")
-        if not (topic and question): raise ValueError("Missing required keys in JSON response")
+        if not (topic and question): 
+            raise ValueError("Missing required keys in JSON response")
         print(f"[BRAIN] Parsed topic: '{topic}', question: '{question}' for user {bot_instance.user_id}")
     except (json.JSONDecodeError, ValueError) as e:
         print(f"[BRAIN] Initiation failed to get valid JSON for user {bot_instance.user_id}: {e}")
@@ -465,15 +474,18 @@ YOUR JSON RESPONSE:
     sender_user = persona.get("telegram_user") or bot_instance.behavior_settings.get("default_telegram_sender")
     return {"channel_id": channel_id, "message": question, "platform": primary_platform, "telegram_user": sender_user}
 
+
 async def handle_scheduled_link_post(link_info: dict, bot_instance: BotInstance, db: any) -> dict | None:
     """Handles posting a scheduled link. Returns a payload dictionary for the sender, or None."""
     print(f"[SCHEDULER] Processing link for user {bot_instance.user_id}: {link_info.get('link')}")
     
     openai_api_key = bot_instance.credentials.get("openai", {}).get("key")
-    if not openai_api_key: return None
+    if not openai_api_key: 
+        return None
 
     link, description, platform, channel_id = link_info.get("link"), link_info.get("description"), link_info.get("platform"), link_info.get("channel_id")
-    if not all([link, description, platform, channel_id]): return None
+    if not all([link, description, platform, channel_id]): 
+        return None
 
     persona_embeddings, persona_names = bot_instance.persona_embeddings, bot_instance.persona_names
     
@@ -486,9 +498,14 @@ async def handle_scheduled_link_post(link_info: dict, bot_instance: BotInstance,
             print(f"[SCHEDULER] Best persona match for link: '{chosen_persona_name}' for user {bot_instance.user_id}")
     
     chosen_persona = bot_instance.persona_manager.get_persona_by_name(chosen_persona_name) if chosen_persona_name else bot_instance.persona_manager.get_random_persona()
-    if not chosen_persona: return None
+    if not chosen_persona: 
+        return None
 
     chat_context = await get_last_n_messages_as_text(channel_id, 5, db)
+    
+    # Add this line to get the voice data
+    voice = chosen_persona.get('signature_voice', {})
+    
     persona_profile = (
         f"Role: {chosen_persona.get('role', 'N/A')}\n"
         f"Expertise: {', '.join(chosen_persona.get('expertise', []))}\n"
