@@ -4,22 +4,44 @@ from ..schemas.pipeline_state import PipelineState
 from ..services.llm_service import generate_text_response
 
 FEEDBACK_PROMPT_TEMPLATE = """
-You are a System Refinement expert in a multi-agent AI system. The system just failed a validation check while trying to generate a team of AI personas.
+You are a System Refinement expert in a multi-agent AI system. The system failed a validation check while generating AI personas. Your task is to provide a structured, machine-readable instruction to fix the error.
 
-The original goal was: "{user_goal}"
+**Original Goal:** "{user_goal}"
 
-The team of personas generated was:
+**Generated Personas:**
 {persona_list_json}
 
-The validation failed with the following errors:
+**Validation Errors:**
 {error_list}
 
-Your single task is to generate a concise, one-sentence refinement instruction for the Role Mapper agent to use on its next attempt. This instruction should guide it to fix the specific errors found.
+Based on the errors, generate a JSON object with two keys: "action" and "details".
+- The "action" can be one of: "ADD_ROLE", "MODIFY_ROLE", or "CLARIFY_AMBIGUITY".
+- The "details" should contain the information needed to perform the action.
 
-Example:
+Your response MUST be ONLY the valid JSON object.
+
+Example 1:
 Errors: ["The team is missing a role for 'Moderate chat'."]
 Your Output:
-Refine the persona roles by adding a 'Community Moderator' responsible for handling feedback and maintaining a positive chat environment.
+{{
+  "action": "ADD_ROLE",
+  "details": {{
+    "role": "Community Moderator",
+    "description": "Responsible for handling user feedback, maintaining a positive environment, and enforcing community rules."
+  }}
+}}
+
+Example 2:
+Errors: ["The 'Support Specialist' persona does not have expertise related to pricing."]
+Your Output:
+{{
+  "action": "MODIFY_ROLE",
+  "details": {{
+    "role_to_modify": "Support Specialist",
+    "reason_for_change": "The current persona lacks the necessary expertise to answer questions about pricing, which was a required task. Its expertise list should be updated.",
+    "suggested_additions": ["Provide clear information on product pricing and subscription tiers."]
+  }}
+}}
 """
 
 async def run_feedback_loop_agent(state: PipelineState) -> PipelineState:
@@ -49,7 +71,8 @@ async def run_feedback_loop_agent(state: PipelineState) -> PipelineState:
     # We just need a simple text response here
     refinement_instruction = await generate_json_response(
     prompt=prompt,
-    openai_api_key=state.openai_api_key
+    openai_api_key=state.openai_api_key,
+    call_identifier="Feedback_agent"
 )
     
     print(f"[FeedbackLoopAgent] Generated instruction: {refinement_instruction}")

@@ -1,18 +1,20 @@
-# persona-management/agents/role_mapper.py
-
 from typing import List, Dict, Any
 from ..schemas.pipeline_state import PipelineState, PersonaBlueprint
 from ..services.llm_service import generate_json_response
 
 ROLE_MAPPER_PROMPT_TEMPLATE = """
-You are a master AI Architect designing a team of specialized AI personas. Your job is to analyze a list of tasks and define the essential roles required to execute them.
+You are a master AI Architect designing a cohesive team of specialized AI personas. Your job is to analyze a list of tasks and define not only the essential roles but also the team's overall collaboration strategy.
 
 Here is the list of tasks for the bot team:
 {task_list}
 
-Based on these tasks, define a set of unique and non-overlapping persona roles. For each role, provide a "role" title and a concise "description" of its primary function. Group related tasks under a single, well-defined role. Avoid creating too many roles; aim for a small, efficient team.
+Based on these tasks, perform two actions:
 
-Provide your output as a JSON object with a single key "persona_blueprints", which is a list of objects. Each object must have a "role" and a "description" key.
+1.  **Define Persona Blueprints:** Create a set of unique and non-overlapping persona roles. For each role, provide a "role" title and a concise "description" of its primary function. Group related tasks under a single, well-defined role. Aim for a small, efficient team.
+
+2.  **Establish a Team Charter:** Write a brief paragraph describing how this team should work together. Mention key handoffs, complementary functions, and the general collaborative dynamic.
+
+Provide your output as a single JSON object with two keys: "persona_blueprints" and "team_charter".
 
 Example:
 Task List:
@@ -31,7 +33,8 @@ Your Output:
       "role": "Support Specialist",
       "description": "Answers specific, factual user questions about the product, such as price, features, and availability."
     }}
-  ]
+  ],
+  "team_charter": "The Hype Creator will be the primary voice for building excitement and making announcements. The Support Specialist will monitor the chat for specific questions triggered by the Hype Creator's posts and provide detailed, factual answers, ensuring the conversation is both engaging and informative."
 }}
 """
 
@@ -62,22 +65,28 @@ async def run_role_mapper_agent(state: PipelineState) -> PipelineState:
 
     # 2. Call the LLM service.
     llm_response = await generate_json_response(
-    prompt=prompt,
-    openai_api_key=state.openai_api_key
+        prompt=prompt,
+        openai_api_key=state.openai_api_key,
+        call_identifier="role_mapper_agent"
     )
+
     # 3. Validate the response and update the state.
     if "persona_blueprints" in llm_response and isinstance(llm_response["persona_blueprints"], list):
         try:
             # Use Pydantic to parse and validate each blueprint object.
-            # This is much safer than just trusting the structure.
             blueprints = [PersonaBlueprint(**bp) for bp in llm_response["persona_blueprints"]]
-            
             state.persona_blueprints = blueprints
+            
+            # Extract the team charter and save it to the state
+            team_charter = llm_response.get("team_charter", "No team charter was provided.")
+            state.team_charter = team_charter
+            
             state.status = 'CRAFTING' # Transition to the next state
 
             print(f"[RoleMapperAgent] Successfully defined {len(blueprints)} persona roles.")
             for bp in blueprints:
                 print(f"  - Role: {bp.role} -> {bp.description}")
+            print(f"[RoleMapperAgent] Team Charter: {team_charter}")
 
         except Exception as e:
             # This catches errors if the LLM output has the right key but wrong internal structure.

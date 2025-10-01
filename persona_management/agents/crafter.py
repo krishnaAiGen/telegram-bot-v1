@@ -1,38 +1,43 @@
-# persona-management/agents/crafter.py
-
 from typing import List
 from ..schemas.pipeline_state import PipelineState
 from ..schemas.persona_profile import Persona
 from ..services.llm_service import generate_json_response
 import asyncio
+from pydantic import ValidationError
 
 CRAFTER_PROMPT_TEMPLATE = """
-You are a master AI Persona Crafter. Your job is to take a high-level persona role and description and expand it into a detailed, ready-to-use persona profile.
+You are a master AI Persona Crafter. Your job is to take a high-level persona role and expand it into a detailed, ready-to-use profile.
 
-The persona's designated role is: "{role}"
-The description of its function is: "{description}"
+Crucially, you must ensure the persona is perfectly aligned with the team's overall mission and its place within the team structure.
 
-Based on this, generate a complete persona profile. The persona should be creative, coherent, and perfectly suited for its role. Your output MUST be a single, valid JSON object that strictly follows this structure:
+**Overall Mission:** "{user_goal}"
+**Team Charter & Context:** "{team_context}"
+
+Your specific task is to craft the persona for the role of **"{role}"** with the function: **"{description}"**.
+
+Based on ALL of the information above, generate a complete persona profile. The persona should be creative, coherent, and perfectly suited for its role *within this specific team and for this specific mission*. Its expertise and examples should be highly relevant to the mission.
+
+Your output MUST be a single, valid JSON object that strictly follows this structure:
 {{
-  "persona_name": "A creative and fitting name for the persona",
-  "tagline": "A short, catchy tagline that captures its essence",
-  "role": "The designated role provided above",
-  "expertise": ["A list of 3-5 specific areas of expertise relevant to the role"],
+  "persona_name": "A creative name, relevant to the mission",
+  "tagline": "A catchy tagline that captures its essence",
+  "role": "{role}",
+  "expertise": ["A list of 3-5 specific areas of expertise highly relevant to the overall mission"],
   "signature_voice": {{
-    "tone": "Describe the tone in 3-5 adjectives (e.g., witty, formal, enthusiastic)",
-    "style": "Describe the communication style (e.g., uses short sentences, asks questions)",
-    "language_habits": ["A list of 2-3 specific language patterns (e.g., uses specific slang, avoids jargon)"]
+    "tone": "Describe a tone that complements the other team members described in the charter",
+    "style": "Describe the communication style",
+    "language_habits": ["A list of 2-3 specific language patterns"]
   }},
-  "allow_emojis": "A boolean value (true or false) indicating if it uses emojis",
+  "allow_emojis": true,
   "key_traits": ["A list of 3-5 core personality traits"],
   "knowledge_boundaries": {{
-    "will_defer_on": ["A list of topics this persona should avoid and defer to others"],
-    "refusal_message": "A polite but in-character message to use when it cannot answer a question"
+    "will_defer_on": ["Topics this persona should avoid, possibly deferring to a teammate"],
+    "refusal_message": "A polite, in-character refusal message"
   }},
   "examples": [
     {{
-      "user": "A sample user question that this persona would handle",
-      "assistant": "A sample response from the persona, showcasing its voice and style"
+      "user": "A sample user question reflecting the overall mission",
+      "assistant": "A sample response showcasing the persona's unique voice and expertise"
     }},
     {{
       "user": "Another sample user question",
@@ -45,12 +50,7 @@ Based on this, generate a complete persona profile. The persona should be creati
 async def run_crafter_agent(state: PipelineState) -> PipelineState:
     """
     Executes the Crafter agent to expand persona blueprints into full profiles.
-
-    Args:
-        state: The current pipeline state, containing `persona_blueprints`.
-
-    Returns:
-        The updated state with `generated_personas` populated.
+    This version includes retry logic for individual blueprint crafting failures.
     """
     print(f"[CrafterAgent] Crafting {len(state.persona_blueprints)} full persona profiles...")
 
@@ -63,47 +63,59 @@ async def run_crafter_agent(state: PipelineState) -> PipelineState:
         
     crafted_personas: List[Persona] = []
     
-    # We will run the LLM calls for each blueprint concurrently for speed.
-    tasks = []
-    for blueprint in state.persona_blueprints:
-        prompt = CRAFTER_PROMPT_TEMPLATE.format(
-            role=blueprint.role,
-            description=blueprint.description
-        )
-        tasks.append(generate_json_response(
-        prompt=prompt,
-        openai_api_key=state.openai_api_key
-    ))
+    # We will process blueprints one by one to handle individual retries.
+    for i, blueprint in enumerate(state.persona_blueprints):
+        print(f"  - [{(i+1)}/{len(state.persona_blueprints)}] Crafting role: '{blueprint.role}'...")
+        max_retries = 2
+        for attempt in range(max_retries):
+            try:
+                prompt = CRAFTER_PROMPT_TEMPLATE.format(
+                    user_goal=state.initial_prompt,
+                    team_context=state.team_charter,
+                    role=blueprint.role,
+                    description=blueprint.description
+                )
+                
+                llm_response = await generate_json_response(
+                    prompt=prompt,
+                    openai_api_key=state.openai_api_key,
+                    # NEW: Add this line for a unique ID per persona
+                    call_identifier=f"crafter_agent_role_{blueprint.role}" 
+                )
 
-    # Wait for all the LLM calls to complete
-    results = await asyncio.gather(*tasks, return_exceptions=True)
+                # The critical validation step is now inside a try block
+                full_profile = Persona(**llm_response)
+                crafted_personas.append(full_profile)
+                print(f"    - Success: Crafted persona '{full_profile.persona_name}' on attempt {attempt + 1}.")
+                break # Exit the retry loop on success
 
-    for i, result in enumerate(results):
-        blueprint = state.persona_blueprints[i]
-        if isinstance(result, Exception) or "error" in result:
-            error_message = f"CrafterAgent failed for role '{blueprint.role}': LLM call failed or returned an error. Details: {result}"
-            print(f"ERROR: {error_message}")
-            state.status = 'FAILED'
-            state.feedback_notes = error_message
-            return state # Fail the entire pipeline if one craft fails
-        
-        try:
-            # Use Pydantic to parse the entire complex object.
-            # This is the ultimate validation step.
-            full_profile = Persona(**result)
-            crafted_personas.append(full_profile)
-            print(f"  - Successfully crafted persona: '{full_profile.persona_name}'")
-
-        except Exception as e:
-            error_message = f"CrafterAgent failed for role '{blueprint.role}': Pydantic validation error. The LLM output did not match the required schema. Details: {e}"
-            print(f"ERROR: {error_message}")
-            print(f"LLM Response was: {result}")
-            state.status = 'FAILED'
-            state.history.append(error_message)
-            return state
+            except ValidationError as e:
+                # This is the specific error we encountered!
+                print(f"    - WARNING: Pydantic validation failed on attempt {attempt + 1} for role '{blueprint.role}'.")
+                if attempt < max_retries - 1:
+                    print(f"    - Retrying...")
+                else:
+                    # If all retries fail, then we fail the entire pipeline
+                    error_message = f"CrafterAgent failed for role '{blueprint.role}' after {max_retries} attempts due to a persistent Pydantic validation error. Details: {e}"
+                    print(f"ERROR: {error_message}")
+                    print(f"Last failing LLM Response was: {llm_response}")
+                    state.status = 'FAILED'
+                    state.feedback_notes = error_message
+                    return state
+            
+            except Exception as e:
+                # Catch other potential errors (network, etc.)
+                print(f"    - WARNING: An unexpected error occurred on attempt {attempt + 1} for role '{blueprint.role}': {e}")
+                if attempt < max_retries - 1:
+                    print(f"    - Retrying...")
+                else:
+                    error_message = f"CrafterAgent failed for role '{blueprint.role}' after {max_retries} attempts due to an unexpected error. Details: {e}"
+                    print(f"ERROR: {error_message}")
+                    state.status = 'FAILED'
+                    state.feedback_notes = error_message
+                    return state
 
     state.generated_personas = crafted_personas
-    # The next step after crafting is to check against memory for duplicates.
     state.status = 'CHECKING_MEMORY'
     
     print(f"[CrafterAgent] Successfully crafted all {len(crafted_personas)} persona profiles.")

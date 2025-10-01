@@ -47,7 +47,8 @@ async def run_planner_agent(state: PipelineState) -> PipelineState:
     # 2. Call our centralized LLM service, now passing the user-specific API key.
     llm_response = await generate_json_response(
         prompt=prompt,
-        openai_api_key=state.openai_api_key
+        openai_api_key=state.openai_api_key,
+        call_identifier="planner_agent"  # NEW: Add this line
     )
 
     # 3. Validate the response and update the state.

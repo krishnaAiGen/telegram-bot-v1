@@ -68,7 +68,8 @@ async def run_validator_agent(state: PipelineState) -> Tuple[bool, List[str]]:
     
     llm_response = await generate_json_response(
     prompt=prompt,
-    openai_api_key=state.openai_api_key
+    openai_api_key=state.openai_api_key,
+    call_identifier="validator_agent"
 )
 
     is_valid = llm_response.get("is_valid", False)

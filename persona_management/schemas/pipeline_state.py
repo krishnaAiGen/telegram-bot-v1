@@ -29,6 +29,7 @@ class PipelineState(BaseModel):
     planned_tasks: List[str] = Field(default_factory=list)
     persona_blueprints: List[PersonaBlueprint] = Field(default_factory=list)
     generated_personas: List[Persona] = Field(default_factory=list)
+    team_charter: str | None = None
     
     # For feedback and control flow
     feedback_notes: str | None = None

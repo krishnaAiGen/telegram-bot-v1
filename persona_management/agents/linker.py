@@ -61,7 +61,8 @@ async def run_linker_agent(state: PipelineState) -> PipelineState:
 
     llm_response = await generate_json_response(
     prompt=prompt,
-    openai_api_key=state.openai_api_key
+    openai_api_key=state.openai_api_key,
+    call_identifier="linker_agent"
     )
 
     if "interaction_playbook" in llm_response and isinstance(llm_response["interaction_playbook"], list):

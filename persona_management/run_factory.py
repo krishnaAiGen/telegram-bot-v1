@@ -6,12 +6,38 @@ import os
 from dotenv import load_dotenv
 from rich.console import Console
 from rich.syntax import Syntax
+import logging  # NEW: Import logging
+import time     # NEW: Import time
 
 # Import the main pipeline orchestrator
 from .pipeline import run_persona_factory_pipeline
 
 # Rich is a great library for pretty-printing in the terminal
 console = Console()
+
+# --- NEW: JSON Logger Configuration ---
+class JsonFormatter(logging.Formatter):
+    def format(self, record):
+        log_object = {
+            "timestamp": self.formatTime(record, self.datefmt),
+            "level": record.levelname,
+            "message": record.getMessage()
+        }
+        # If the message is a dict, merge it into the log object
+        if isinstance(record.msg, dict):
+            log_object.update(record.msg)
+            log_object.pop("message", None) # Remove the redundant 'message' key
+        return json.dumps(log_object)
+
+# Configure a specific logger for LLM calls
+log_handler = logging.FileHandler("llm_calls.log")
+log_handler.setFormatter(JsonFormatter())
+
+llm_logger = logging.getLogger("llm_logger")
+llm_logger.setLevel(logging.INFO)
+llm_logger.addHandler(log_handler)
+llm_logger.propagate = False # Prevents duplicate logs in the console
+# --- END NEW ---
 
 async def test_pipeline():
     """
@@ -47,8 +73,10 @@ async def test_pipeline():
     console.print("\n\n[bold green]--- PIPELINE FINAL OUTPUT ---[/bold green]")
     
     if result.get("status") == "success":
-        # We'll display the raw personas list for this test script
-        json_output = json.dumps(result.get("personas", []), indent=2)
+        # The prompt asks for the 'personas' key, but your pipeline returns 'characters'.
+        # Let's adjust to display the correct output.
+        final_output = result.get("characters", [])
+        json_output = json.dumps(final_output, indent=2)
         syntax = Syntax(json_output, "json", theme="solarized-dark", line_numbers=True)
         console.print(syntax)
     else:
