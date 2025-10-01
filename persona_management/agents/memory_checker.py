@@ -45,9 +45,10 @@ async def run_memory_checker_agent(state: PipelineState) -> PipelineState:
 
     # We use a simple text response here, not JSON
     llm_response = await generate_text_response(
-    prompt=prompt,
-    openai_api_key=state.openai_api_key
-)
+        prompt=prompt,
+        openai_api_key=state.openai_api_key,
+        call_identifier="memory_checker_agent" # NEW: Add this line
+    )
 
     print(f"[MemoryCheckerAgent] LLM Analysis: {llm_response}")
 
