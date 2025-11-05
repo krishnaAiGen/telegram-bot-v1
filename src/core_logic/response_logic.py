@@ -180,6 +180,14 @@ Provide the single most important fact or data point as a raw, unformatted sente
 
         if "Error:" in final_reply or not final_reply.strip():
             raise Exception(f"Humanizer failed or returned an invalid reply: {final_reply}")
+        
+        # --- Content Moderation Check ---
+        openai_api_key = bot_instance.credentials.get("openai", {}).get("api_key")
+        if openai_api_key:
+            from src.services.openai_chat import is_content_offensive
+            if await is_content_offensive(final_reply, openai_api_key):
+                print(f"[BRAIN] Realtime query response flagged by moderation API for user {bot_instance.user_id}. Blocking response.")
+                raise Exception("Response flagged by content moderation.")
 
         # Add to memory only on success
         add_to_memory(message.text, "user", message.platform, message.sender_id, mem0_api_key)
@@ -361,6 +369,8 @@ YOUR REPLY (RAW TEXT ONLY):
         if not final_reply.strip():
             raise ValueError("LLM returned an empty or invalid response.")
         
+        
+        
         # Add to memory and update state
         add_to_memory(message.text, "user", message.platform, message.sender_id, mem0_api_key)
         add_to_memory(final_reply, "assistant", message.platform, "bot_assistant", mem0_api_key)
@@ -384,11 +394,27 @@ YOUR REPLY (RAW TEXT ONLY):
 async def handle_initiation(bot_instance: BotInstance, db: any) -> dict | None:
     """Generates a new topic. Returns a payload dictionary for the sender, or None."""
     print(f"[BRAIN] Handling topic initiation for user {bot_instance.user_id}")
+    # Get API keys from credentials
+    openai_api_key = bot_instance.credentials.get("openai", {}).get("api_key")
+    mem0_api_key = bot_instance.credentials.get("mem0", {}).get("api_key")
     
-    openai_api_key = bot_instance.credentials.get("openai", {}).get("key")
-    mem0_api_key = bot_instance.credentials.get("mem0", {}).get("key")
-    channel_id = bot_instance.behavior_settings.get("primary_channel_id")
-    primary_platform = bot_instance.behavior_settings.get("primary_platform")
+    # Get platform from user_config (not active_platforms or config)
+    primary_platform = None
+    active_platforms = bot_instance.behavior_settings.get('activePlatforms', [])
+    if active_platforms:
+        primary_platform = active_platforms[0]
+    
+    # Get channel ID based on platform from credentials
+    channel_id = None
+    if primary_platform == "telegram":
+        telegram_config = bot_instance.credentials.get('telegram', {})
+        channel_id = telegram_config.get('telegram_group_id')
+    elif primary_platform == "slack":
+        slack_config = bot_instance.credentials.get('slack', {})
+        channel_id = slack_config.get('channel_id')
+    elif primary_platform == "discord":
+        discord_config = bot_instance.credentials.get('discord', {})
+        channel_id = discord_config.get('channel_id')
 
     if not all([openai_api_key, mem0_api_key, channel_id, primary_platform]): 
         print(f"Skipping initiation for user {bot_instance.user_id}: missing required settings.")
@@ -419,7 +445,7 @@ Analyze the provided chat history. Your mission is to find the single most compe
     - **Bad Example (Forbidden):** "Let's discuss [topic]."
 - **LAW #2: ASK, DON'T STATE.** Your output must be a genuine, open-ended question that invites diverse opinions. It should not be a statement of fact or a new topic declaration.
 - **LAW #3: BE SPECIFIC, NOT GENERIC.** Do not ask "What does everyone think about NFTs?". Instead, ask "Related to the royalties chat, do you think projects will start enforcing them off-chain too?". Be specific to the conversation you are reviving.
-- **LAW #4: BE EXTREMELY BRIEF.** The final question must be short and punchy, as if typed on a phone. Ideally under 20 words.
+- **LAW #4: BE EXTREMELY BRIEF.** The final question must be short and punchy, as if typed on a phone. Ideally under 10 words.
 
 ## 3.5. CHAT HISTORY FOR ANALYSIS
 ---
@@ -439,7 +465,7 @@ Example Output:
 {{
   "thought": "The most interesting hook was the debate about whether on-chain governance is truly decentralized or just plutocracy. It ended without a clear consensus. I'll frame a question that re-opens that specific tension. The summary key will be 'on-chain governance debate'.",
   "topic_summary": "on-chain governance debate",
-  "question": "Hey, circling back to the on-chain governance chat... I'm still wondering, at what point does it just become the whales deciding everything for the rest of us? Genuinely curious where people draw the line."
+  "question": "What do you think could be the future of on chain governance"
 }}
 ---
 YOUR JSON RESPONSE:
@@ -479,7 +505,7 @@ async def handle_scheduled_link_post(link_info: dict, bot_instance: BotInstance,
     """Handles posting a scheduled link. Returns a payload dictionary for the sender, or None."""
     print(f"[SCHEDULER] Processing link for user {bot_instance.user_id}: {link_info.get('link')}")
     
-    openai_api_key = bot_instance.credentials.get("openai", {}).get("key")
+    openai_api_key = bot_instance.credentials.get("openai", {}).get("api_key")
     if not openai_api_key: 
         return None
 

@@ -114,7 +114,39 @@ USER MESSAGE: {message.text}"
 
         except asyncio.TimeoutError:
             # If you see this message, the brain is alive but the queue is empty.
-            print("[BRAIN-DEBUG] Timed out after 5s. No message on queue. Looping again.")
+            print("[BRAIN-DEBUG] Timed out after 5s. No message on queue. Checking for topic initiation...")
+            
+            # Check if we should initiate a conversation
+            bot_state = state_manager.load_bot_state()
+            last_activity = bot_state.get("last_activity_time", 0)
+            min_initiate_hours = bot_instance.behavior_settings.get("min_initiate_hours", 2)
+            
+            # Only initiate if enough time has passed since last activity
+            if time.time() - last_activity > (min_initiate_hours * 3600):
+                print(f"[BRAIN] {min_initiate_hours} hours since last activity. Attempting topic initiation...")
+                
+                try:
+                    initiation_payload = await handle_initiation(bot_instance, db)
+                    if initiation_payload:
+                        platform = initiation_payload.get("platform")
+                        sender_queue = sender_queues.get(f"{platform}_sender_queue")
+                        if sender_queue:
+                            await sender_queue.put(initiation_payload)
+                            print(f"[BRAIN] Topic initiation sent to {platform} sender.")
+                            
+                            # Update last activity time to prevent immediate re-initiation
+                            bot_state["last_activity_time"] = time.time()
+                            state_manager.save_bot_state(bot_state)
+                        else:
+                            print(f"[BRAIN] ERROR: No sender queue found for platform '{platform}' during initiation.")
+                    else:
+                        print("[BRAIN] Topic initiation returned no payload.")
+                except Exception as e:
+                    print(f"[BRAIN] ERROR during topic initiation: {e}")
+            else:
+                remaining_hours = (min_initiate_hours * 3600 - (time.time() - last_activity)) / 3600
+                print(f"[BRAIN] Not initiating topic yet. {remaining_hours:.1f} hours remaining until next initiation window.")
+            
             continue
             
         except asyncio.CancelledError:
