@@ -22,12 +22,11 @@ from telethon import TelegramClient
 from telethon.errors import SessionPasswordNeededError
 from telethon.sessions import StringSession
 
-# --- 3. Local Project Imports ---
-# NOTE: Ensure your shell is running from the project's root `backend/` directory
-# for these top-level imports to work correctly.
+
 from persona_management.pipeline import run_persona_factory_pipeline
-from src.orchestrator import start_orchestrator_task, stop_orchestrator_task
+from src.orchestrator import start_orchestrator_task, stop_orchestrator_task, decrypt_credentials
 from src.config.logging_config import setup_logging
+
 # --- 4. Initialization & Lifespan Manager ---
 setup_logging()
 logger = logging.getLogger(__name__)
@@ -402,3 +401,62 @@ async def save_discord_connection(request: DiscordConnectionRequest, uid: str = 
     doc_ref = db.collection("customers").document(uid).collection("connections").document("discord")
     doc_ref.set({"bot_token_encrypted": encrypted_bot_token, "channel_id": request.channel_id})
     return {"message": "Discord connected."}
+
+## For Future
+
+@app.get("/api/health", tags=["System"])
+async def health_check():
+    """System health check endpoint"""
+    return {
+        "status": "healthy",
+        "timestamp": time.time(),
+        "orchestrator_running": True  
+    }
+
+@app.get("/api/validate/{uid}", tags=["System"])
+async def validate_user_config(uid: str = Depends(get_current_user)):
+    """Validate user's bot configuration"""
+    try:
+        # Load user data similar to orchestrator
+        doc = db.collection("customers").document(uid).get()
+        if not doc.exists:
+            raise HTTPException(status_code=404, detail="User not found")
+        
+        user_data = doc.to_dict()
+        persona_config = user_data.get("personaConfig", {})
+        
+        if not persona_config.get("liveTeam"):
+            return {"valid": False, "errors": ["No personas deployed"]}
+        
+        # Load connections
+        connections = {}
+        connections_ref = db.collection("customers").document(uid).collection("connections")
+        for doc in connections_ref.stream():
+            connections[doc.id] = doc.to_dict()
+        
+        # Decrypt credentials
+        decrypted_connections = decrypt_credentials(connections, fernet)
+        
+        # Create temporary bot instance for validation
+        from src.bot_instance import BotInstance
+        user_config = {"personaConfig": persona_config, "connections": decrypted_connections}
+        temp_instance = BotInstance(user_id=uid, user_config=user_config)
+        
+        # Validate configuration
+        from src.services.config_validator import validate_bot_configuration, test_api_connections
+        is_valid, errors = validate_bot_configuration(temp_instance)
+        
+        # Test API connections if basic validation passes
+        api_status = {}
+        if is_valid:
+            api_status = await test_api_connections(temp_instance)
+        
+        return {
+            "valid": is_valid,
+            "errors": errors,
+            "api_connections": api_status
+        }
+        
+    except Exception as e:
+        logger.error(f"Configuration validation failed for user {uid}", exc_info=True)
+        raise HTTPException(status_code=500, detail=f"Validation failed: {str(e)}")
